@@ -317,6 +317,16 @@ func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
 			m.textInput.CursorEnd()
 		}
 		m.varState.picker.Filter(m.textInput.Value())
+
+		// Set the cursor location, if the variable already exists in prefilled.
+		if vs.prefill != "" {
+			for i, opt := range m.varState.picker.Filtered {
+				if opt.Original == vs.prefill {
+					m.varState.picker.Cursor = i
+					break
+				}
+			}
+		}
 	}
 
 	return m, nil
