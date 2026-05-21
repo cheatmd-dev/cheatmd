@@ -362,7 +362,9 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 		m.picker.Offset = 0
 		return nil
 	case "enter":
-		return m.acceptVarValue()
+		return m.acceptVarValue(false)
+	case "alt+enter", "ctrl+j":
+		return m.acceptVarValue(true)
 	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
 		if !m.varState.isPromptOnly && m.varState.picker != nil {
 			m.varState.picker.HandleKey(msg)
@@ -473,7 +475,7 @@ func (m *mainModel) clearPathCompletions() {
 }
 
 // acceptVarValue accepts the current value and moves to next variable.
-func (m *mainModel) acceptVarValue() tea.Cmd {
+func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
 	if m.varState == nil {
 		return tea.Quit
 	}
@@ -481,7 +483,7 @@ func (m *mainModel) acceptVarValue() tea.Cmd {
 	vs := &m.varState.vars[m.varState.currentIdx]
 	var value string
 
-	if m.varState.isPromptOnly {
+	if bypassSelection || m.varState.isPromptOnly {
 		value = m.textInput.Value()
 	} else if m.varState.selectOpts.Multi && len(vs.multiSelected) > 0 {
 		var mapped []string
@@ -625,6 +627,10 @@ func (m *mainModel) renderVarBottomWithHeight(width int, maxHeight int) string {
 	}
 	b.WriteString(" • ")
 	b.WriteString(styles.Dim.Render("Enter accept"))
+	if !m.varState.isPromptOnly {
+		b.WriteString(" • ")
+		b.WriteString(styles.Dim.Render("Ctrl+Enter bypass"))
+	}
 	b.WriteString("\n")
 	b.WriteString(m.textInput.View())
 
