@@ -363,7 +363,7 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	case "enter":
 		return m.acceptVarValue(false)
-	case "ctrl+enter":
+	case "ctrl+enter", "ctrl+j":
 		return m.acceptVarValue(true)
 	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
 		if !m.varState.isPromptOnly && m.varState.picker != nil {
