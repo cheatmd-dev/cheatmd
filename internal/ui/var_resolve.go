@@ -629,7 +629,7 @@ func (m *mainModel) renderVarBottomWithHeight(width int, maxHeight int) string {
 	b.WriteString(styles.Dim.Render("Enter accept"))
 	if !m.varState.isPromptOnly {
 		b.WriteString(" • ")
-		b.WriteString(styles.Dim.Render("Ctrl+Enter bypass"))
+		b.WriteString(styles.Dim.Render("Alt+Enter bypass"))
 	}
 	b.WriteString("\n")
 	b.WriteString(m.textInput.View())
