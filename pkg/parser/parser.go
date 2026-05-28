@@ -182,6 +182,7 @@ func (p *Parser) ParseSingleFile(path string) (*CheatIndex, error) {
 // parseState holds the current parsing state
 type parseState struct {
 	currentHeader     string
+	currentHeaderLine int
 	lineNo            int
 	inCodeBlock       bool
 	codeBlockLang     string
@@ -207,8 +208,9 @@ type codeBlock struct {
 }
 
 // reset clears pending blocks and updates header
-func (s *parseState) reset(newHeader string) {
+func (s *parseState) reset(newHeader string, lineNo int) {
 	s.currentHeader = newHeader
+	s.currentHeaderLine = lineNo
 	s.pendingCodeBlocks = s.pendingCodeBlocks[:0]
 	s.currentHeaderTags = s.currentHeaderTags[:0]
 	s.headerCheats = s.headerCheats[:0]
@@ -228,6 +230,7 @@ var parseStatePool = sync.Pool{
 func getParseState() *parseState {
 	s := parseStatePool.Get().(*parseState)
 	s.currentHeader = ""
+	s.currentHeaderLine = 0
 	s.lineNo = 0
 	s.inCodeBlock = false
 	s.codeBlockLang = ""
@@ -351,7 +354,7 @@ func (p *Parser) parseLine(path string, line []byte, s *parseState) {
 	if first == '#' {
 		if header, ok := parseHeader(line); ok {
 			p.processPendingBlocks(path, s)
-			s.reset(header)
+			s.reset(header, s.lineNo)
 			if header == "" {
 				p.index.Errors = append(p.index.Errors, ParseError{
 					File:    path,
@@ -471,6 +474,7 @@ func (p *Parser) processPendingBlocks(path string, s *parseState) {
 // createCheat creates a new cheat from parsed data
 func (p *Parser) createCheat(path string, s *parseState, block codeBlock, cheatBlock string, hasCheatBlock bool, cheatLine int) *Cheat {
 	cheat := NewCheat(path, s.currentHeader)
+	cheat.HeaderLine = s.currentHeaderLine
 	cheat.Description = strings.TrimSpace(block.description)
 	cheat.Command = block.content
 	cheat.CommandLang = block.lang

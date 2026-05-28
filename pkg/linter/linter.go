@@ -162,7 +162,7 @@ func lintIndex(index *parser.CheatIndex, isDir bool) []Finding {
 				}
 				findings = append(findings, Finding{
 					File:     c.File,
-					Line:     c.CommandStart,
+					Line:     c.HeaderLine,
 					Column:   1,
 					Severity: SeverityWarning,
 					Message:  msg,
@@ -170,7 +170,7 @@ func lintIndex(index *parser.CheatIndex, isDir bool) []Finding {
 				warnedHeaders[c.Header] = true
 			}
 		} else {
-			headerLocs[c.Header] = cheatLoc{file: c.File, line: c.CommandStart}
+			headerLocs[c.Header] = cheatLoc{file: c.File, line: c.HeaderLine}
 		}
 	}
 	seenChainSteps := make(map[string]*parser.Cheat)

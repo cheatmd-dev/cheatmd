@@ -10,6 +10,7 @@ import "strings"
 type Cheat struct {
 	File          string            // Source file path
 	Header        string            // Section header
+	HeaderLine    int               // 1-indexed source line of the heading
 	Description   string            // Description text
 	Command       string            // Shell command template
 	CommandLang   string            // Code fence language for Command
