@@ -21,6 +21,7 @@ cheatmd                    # Browse current directory
 cheatmd ~/cheats           # Browse specific directory
 cheatmd -q "docker"        # Start with search query
 cheatmd --history          # Re-run from execution history
+cheatmd convert tldr tar.md -o ~/cheats/tar.md
 ```
 
 ## Features
@@ -102,6 +103,18 @@ Export cheat metadata as JSON or CSV for indexing and tooling:
 cheatmd dump ~/cheats --json
 ```
 
+### Convert existing cheatsheets
+
+Bring existing collections into CheatMD:
+
+```bash
+cheatmd convert navi ~/navi-cheats -o ~/cheats
+cheatmd convert tldr ~/tldr/pages/common/tar.md -o ~/cheats/tar.md
+cheatmd convert cheat ~/cheat/cheatsheets -o ~/cheats
+```
+
+Supported inputs are `navi`, `tldr`, and `cheat/cheatsheets`.
+
 ### Headless Mode
 
 Run CheatMD without a TUI to integrate with other tools (like VS Code or Obsidian) using a JSON-RPC interface over standard I/O:
@@ -109,6 +122,12 @@ Run CheatMD without a TUI to integrate with other tools (like VS Code or Obsidia
 ```bash
 cheatmd --headless -q "docker exec"
 ```
+
+## Editor Extensions
+
+- **[VS Code](../cheatmd.ext/cheatmd-vscode)** - syntax highlighting, lint diagnostics, completion, and CodeLens execution.
+- **[Neovim](../cheatmd.ext/cheatmd-neovim)** - syntax highlighting, async diagnostics, completion, and `:CheatMDRun`.
+- **[Obsidian](../cheatmd.ext/cheatmd-obsidian)** - inline run buttons, lint status, execution results, and variable autocomplete.
 
 ## TUI Keys
 
@@ -135,6 +154,7 @@ Full documentation lives in the **[Wiki](../../wiki)**:
 - **[Shell Integration](../../wiki/Shell-Integration)** - widget, tmux, zellij
 - **[Linting](../../wiki/Linting)** - syntax and reference validation
 - **[Dump](../../wiki/Dump)** - metadata export
+- **[Convert](../../wiki/Convert)** - import navi, tldr, and cheat/cheatsheets collections
 - **[Headless Mode](../../wiki/Headless-Mode)** - JSON-RPC programmatic interface
 - **[Recipes](../../wiki/Recipes)** - copy-pasteable patterns
 
