@@ -57,6 +57,12 @@ func TestSubstituteVars_Dollar(t *testing.T) {
 			expected: "echo alice and bob",
 		},
 		{
+			name:     "substitution happens inside shell quotes",
+			input:    "curl -H '$Authorization_Bearer_token'",
+			scope:    map[string]string{"Authorization_Bearer_token": "Authorization: Bearer token"},
+			expected: "curl -H 'Authorization: Bearer token'",
+		},
+		{
 			name:     "missing var is left as is",
 			input:    "echo $missing",
 			scope:    map[string]string{"other": "val"},

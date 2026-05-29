@@ -9,7 +9,6 @@ import (
 
 var (
 	naviPlaceholderRe = regexp.MustCompile(`<([a-zA-Z0-9_\-\.\/]+)>`)
-	tldrPlaceholderRe = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_\-\.\/]+)\s*\}\}`)
 	// shellEnvVarRe matches a shell-style environment variable reference in
 	// a navi command body. Navi uses `<name>` for its own placeholders, so any
 	// `$NAME` is conventionally a shell env var the user expects to inherit
@@ -76,7 +75,7 @@ func rewriteNavi(command string) (string, []string) {
 
 // rewriteTldr replaces {{name}} placeholders with $sanitized.
 func rewriteTldr(command string) (string, []string) {
-	phs := extractPlaceholders(command, tldrPlaceholderRe)
+	phs := extractTldrPlaceholders(command)
 	for _, ph := range phs {
 		sanitized := sanitizeVarName(ph)
 		command = strings.ReplaceAll(command, "{{"+ph+"}}", "$"+sanitized)
@@ -117,6 +116,50 @@ func extractPlaceholders(cmd string, re *regexp.Regexp) []string {
 		}
 	}
 	return list
+}
+
+func extractTldrPlaceholders(cmd string) []string {
+	var list []string
+	seen := make(map[string]struct{})
+	for i := 0; i < len(cmd)-1; i++ {
+		if cmd[i] != '{' || cmd[i+1] != '{' {
+			continue
+		}
+		start := i + 2
+		end := findTldrPlaceholderEnd(cmd, start)
+		if end == -1 {
+			continue
+		}
+		ph := strings.TrimSpace(cmd[start:end])
+		if ph != "" {
+			if _, ok := seen[ph]; !ok {
+				seen[ph] = struct{}{}
+				list = append(list, ph)
+			}
+		}
+		i = end + 1
+	}
+	return list
+}
+
+func findTldrPlaceholderEnd(cmd string, start int) int {
+	for i := start; i < len(cmd); {
+		if cmd[i] == '\n' {
+			return -1
+		}
+		if cmd[i] != '}' {
+			i++
+			continue
+		}
+		runStart := i
+		for i < len(cmd) && cmd[i] == '}' {
+			i++
+		}
+		if i-runStart >= 2 {
+			return i - 2
+		}
+	}
+	return -1
 }
 
 func sanitizeVarName(s string) string {
@@ -165,7 +208,7 @@ func formatHeaderVarsBlock(placeholders []string) string {
 	for _, ph := range placeholders {
 		sb.WriteString("var ")
 		sb.WriteString(sanitizeVarName(ph))
-		sb.WriteString(" = --- --header ")
+		sb.WriteString(" --- --header ")
 		sb.WriteString(strconv.Quote(ph))
 		sb.WriteByte('\n')
 	}

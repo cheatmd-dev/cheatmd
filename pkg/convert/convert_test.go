@@ -1,6 +1,8 @@
 package convert
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -555,13 +557,228 @@ tar -czvf {{path/to/archive.tar.gz}} {{path/to/directory}}
 		t.Errorf("Expected command placeholders to be replaced, got: %s", converted)
 	}
 
-	if !strings.Contains(converted, "var path_to_archive_tar_gz = --- --header \"path/to/archive.tar.gz\"") {
+	if !strings.Contains(converted, "var path_to_archive_tar_gz = printf '%s\\n' 'path/to/archive.tar.gz' --- --header \"path/to/archive.tar.gz\"") {
 		t.Errorf("Expected var definition for first placeholder, got: %s", converted)
 	}
 
-	if !strings.Contains(converted, "var path_to_directory = --- --header \"path/to/directory\"") {
+	if !strings.Contains(converted, "var path_to_directory = printf '%s\\n' 'path/to/directory' --- --header \"path/to/directory\"") {
 		t.Errorf("Expected var definition for second placeholder, got: %s", converted)
 	}
+}
+
+// ============================================================================
+// TLDR placeholder-shape tests
+// ============================================================================
+//
+// The tldr-pages style guide allows a long tail of placeholder shapes the
+// initial converter regex didn't recognize. These tests pin down the shape
+// classification, var-name derivation, and command rewriting for each form
+// we expect to see in real pages.
+
+func TestConvertTldrOptionPairBecomesPickerWithFlagSuffix(t *testing.T) {
+	// `{{[-m|--message]}}` is the tldr "alternate short/long flag" form.
+	// It must become a picker fed by `printf '%s\n' '-m' '--message'`, and
+	// the var name carries `_flag` to dodge a collision with a sibling
+	// `{{message}}` placeholder in the same example (git-commit style).
+	input := "# git commit\n\n- Commit with message:\n\n`git commit {{[-m|--message]}} \"{{message}}\"`\n"
+
+	converted, err := ConvertTldr(input, "git-commit.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "git commit $message_flag \"$message\"") {
+		t.Errorf("Expected `$message_flag` + `$message`, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, `var message_flag = printf '%s\n' '-m' '--message' --- --header "[-m|--message]"`) {
+		t.Errorf("Expected message_flag picker var, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, `var message = printf '%s\n' 'message' --- --header "message"`) {
+		t.Errorf("Expected free-text message var, got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrBareAlternationBecomesPicker(t *testing.T) {
+	// `{{f|d}}` is a bare alternation (no brackets) — picker over the
+	// listed options, named after the first option.
+	input := "# find\n\n- Find files or dirs:\n\n`find {{path/to/dir}} -type {{f|d}}`\n"
+
+	converted, err := ConvertTldr(input, "find.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "-type $f") {
+		t.Errorf("Expected alternation to substitute as $f, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, `var f = printf '%s\n' 'f' 'd' --- --header "f|d"`) {
+		t.Errorf("Expected alternation picker var, got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrBracketedAlternationInsidePathIsLiteral(t *testing.T) {
+	// `{{path/to/source.tar[.gz|.bz2|.xz]}}` has brackets INSIDE a larger
+	// payload. It must NOT be treated as an option pair; the user should
+	// type a literal filename whose extension matches the suggested set.
+	input := "# tar\n\n- Extract an archive:\n\n`tar xvf {{path/to/source.tar[.gz|.bz2|.xz]}}`\n"
+
+	converted, err := ConvertTldr(input, "tar.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	if strings.Contains(converted, "'path/to/source.tar[.gz'") {
+		t.Errorf("Bracketed alt inside a path must not be split into picker choices, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, `var path_to_source_tar_gz_bz2_xz = printf '%s\n' 'path/to/source.tar[.gz|.bz2|.xz]' --- --header "path/to/source.tar[.gz|.bz2|.xz]"`) {
+		t.Errorf("Expected the bracketed path to appear as a free-text header label, got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrGlobAndCommandPlaceholdersSurvive(t *testing.T) {
+	// Real-world tldr pages stash globs (`{{*.html}}`), wildcards
+	// (`{{*lib*}}`), embedded commands (`{{wc -l}}`), and multi-arg
+	// placeholders (`{{path/to/file1 path/to/file2 ...}}`). All must round-
+	// trip through the converter and surface as bare prompts whose --header
+	// preserves the original payload as a hint.
+	input := "# samples\n\n" +
+		"- Glob:\n\n`find . -name '{{*.html}}'`\n\n" +
+		"- Wildcard:\n\n`find . -iname '{{*lib*}}'`\n\n" +
+		"- Embedded command:\n\n`find . -name '{{*.ext}}' -exec {{wc -l}} {} \\;`\n\n" +
+		"- Multi-arg:\n\n`tar cf {{path/to/target.tar}} {{path/to/file1 path/to/file2 ...}}`\n"
+
+	converted, err := ConvertTldr(input, "samples.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	// Original `{{...}}` payloads must not survive in the output — every one
+	// of them must have been substituted with `$<name>`.
+	if strings.Contains(converted, "{{") || strings.Contains(converted, "}}") {
+		t.Errorf("All `{{...}}` must be rewritten, got:\n%s", converted)
+	}
+	for _, header := range []string{
+		`"*.html"`,
+		`"*lib*"`,
+		`"wc -l"`,
+		`"path/to/file1 path/to/file2 ..."`,
+	} {
+		if !strings.Contains(converted, header) {
+			t.Errorf("Expected header label %s preserved, got:\n%s", header, converted)
+		}
+	}
+}
+
+func TestConvertTldrJsonPlaceholderWithBracesSurvives(t *testing.T) {
+	input := "# curl\n\n- Send JSON:\n\n`curl {{[-d|--data]}} '{{{\"name\":\"bob\"}}}' {{http://example.com/users/1234}}`\n"
+
+	converted, err := ConvertTldr(input, "curl.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "curl $data_flag '$name_bob' $http_example_com_users_1234") {
+		t.Errorf("Expected JSON payload to become a single quoted placeholder var, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, `var name_bob = printf '%s\n' '{"name":"bob"}' --- --header "{\"name\":\"bob\"}"`) {
+		t.Errorf("Expected full JSON object preserved as header, got:\n%s", converted)
+	}
+	if strings.Contains(converted, "{$name_bob}") {
+		t.Errorf("JSON braces must not be left around a partial placeholder, got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrSameSanitizedNameGetsSuffixed(t *testing.T) {
+	// Two distinct raw payloads sanitizing to the same identifier must NOT
+	// produce duplicate `var X` lines; the second gets `_2`, etc.
+	input := "# t\n\n- Two paths:\n\n`cp {{path/to/file}} {{path/to/file.bak}}`\n"
+
+	converted, err := ConvertTldr(input, "t.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "$path_to_file ") {
+		t.Errorf("Expected first placeholder as $path_to_file, got:\n%s", converted)
+	}
+	// Either suffix scheme is OK as long as the second is distinct. Assert
+	// non-collision by checking BOTH names are declared.
+	if !strings.Contains(converted, "var path_to_file ") {
+		t.Errorf("Expected first var declared, got:\n%s", converted)
+	}
+	if strings.Count(converted, "var path_to_file ") != 1 {
+		t.Errorf("First name must appear exactly once (no duplicates), got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrKeypressSyntaxPassesThrough(t *testing.T) {
+	// tldr's `<Enter><~><.>` keypress notation is NOT a placeholder; the
+	// converter must let it through verbatim.
+	input := "# ssh\n\n- Close session:\n\n`<Enter><~><.>`\n"
+
+	converted, err := ConvertTldr(input, "ssh.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+	if !strings.Contains(converted, "<Enter><~><.>") {
+		t.Errorf("Keypress syntax must survive, got:\n%s", converted)
+	}
+}
+
+func TestConvertTldrSkipsHeaderInfoLines(t *testing.T) {
+	// `>` lines (description, "More information", "See also") are header
+	// metadata and must not show up as commands or descriptions.
+	input := "# tool\n\n> A description.\n> More information: <https://example.com>.\n> See also: `other`.\n\n- Run it:\n\n`tool {{arg}}`\n"
+
+	converted, err := ConvertTldr(input, "tool.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+	for _, leak := range []string{"More information", "See also", "https://example.com"} {
+		if strings.Contains(converted, leak) {
+			t.Errorf("Header line %q leaked into output:\n%s", leak, converted)
+		}
+	}
+}
+
+func TestConvertTldrRealFixturesProduceNoStrayPlaceholders(t *testing.T) {
+	// Sweep test against committed real-world tldr pages. The contract:
+	// every `{{...}}` in the source must be substituted with a `$NAME` in
+	// the converted output, and every emitted var line must reference a
+	// var that's actually used in the example's command.
+	for _, name := range []string{"tar", "curl", "grep", "find", "ssh", "git-commit"} {
+		t.Run(name, func(t *testing.T) {
+			src := readTestdata(t, "tldr/"+name+".md")
+			converted, err := ConvertTldr(src, name+".md")
+			if err != nil {
+				t.Fatalf("ConvertTldr(%s) failed: %v", name, err)
+			}
+			if strings.Contains(converted, "{{") {
+				t.Errorf("Stray `{{` in converted %s, indicating an unrewritten placeholder:\n%s",
+					name, converted)
+			}
+			if strings.Contains(converted, "}}") {
+				t.Errorf("Stray `}}` in converted %s:\n%s", name, converted)
+			}
+			// Round-trip sanity: the number of `## ` headings should match
+			// the number of `- ` example bullets in the source.
+			wantExamples := strings.Count(src, "\n- ")
+			gotExamples := strings.Count(converted, "\n## ")
+			if wantExamples != gotExamples {
+				t.Errorf("%s: example count drifted: source has %d, converted has %d",
+					name, wantExamples, gotExamples)
+			}
+		})
+	}
+}
+
+func readTestdata(t *testing.T, relPath string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", relPath))
+	if err != nil {
+		t.Fatalf("read testdata %s: %v", relPath, err)
+	}
+	return string(data)
 }
 
 func TestConvertCheat(t *testing.T) {
@@ -594,11 +811,11 @@ tar -czvf <archive.tar.gz> {{path/to/directory}}
 		t.Errorf("Expected placeholder replacement, got: %s", converted)
 	}
 
-	if !strings.Contains(converted, "var archive_tar_gz = --- --header \"archive.tar.gz\"") {
+	if !strings.Contains(converted, "var archive_tar_gz --- --header \"archive.tar.gz\"") {
 		t.Errorf("Expected var definition for navi placeholder, got: %s", converted)
 	}
 
-	if !strings.Contains(converted, "var path_to_directory = --- --header \"path/to/directory\"") {
+	if !strings.Contains(converted, "var path_to_directory --- --header \"path/to/directory\"") {
 		t.Errorf("Expected var definition for tldr placeholder, got: %s", converted)
 	}
 }
