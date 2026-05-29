@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/gubarz/cheatmd/internal/resolver"
 	"github.com/gubarz/cheatmd/pkg/chainstate"
 	"github.com/gubarz/cheatmd/pkg/config"
 	"github.com/gubarz/cheatmd/pkg/history"
@@ -87,7 +88,7 @@ func RunTUIWithStart(index *parser.CheatIndex, exec Executor, initialQuery, matc
 	requireCheatBlock := config.GetRequireCheatBlock()
 	autoSelect := config.GetAutoSelect()
 
-	cheats := filterCheatsByConfig(index.Cheats, requireCheatBlock)
+	cheats := index.FilterByConfig(requireCheatBlock)
 	if len(cheats) == 0 {
 		return "", fmt.Errorf("no cheats found")
 	}
@@ -109,10 +110,10 @@ func RunTUIWithStart(index *parser.CheatIndex, exec Executor, initialQuery, matc
 	}
 
 	if matchCmd != "" {
-		if matched := findMatchingCheat(cheats, matchCmd); matched != nil {
+		if matched := resolver.FindMatchingCheat(cheats, matchCmd); matched != nil {
 			m.selected = matched
-			prefillScopeFromMatch(matched, matchCmd)
-			inferDependentVars(matched, index)
+			resolver.PrefillScopeFromMatch(matched, matchCmd)
+			resolver.InferDependentVars(matched, index)
 			m.startVarResolutionInternal()
 
 			if m.phase != phaseVarResolve {
@@ -215,23 +216,6 @@ func advanceChain(index *parser.CheatIndex, cheat *parser.Cheat, path string, st
 	}
 	chainstate.SetStep(index.Root, cheat.ChainName, next, state)
 	_ = chainstate.Save(path, state)
-}
-
-// filterCheatsByConfig returns cheats matching configuration. When
-// requireCheatBlock is true, cheats without a <!-- cheat --> block are
-// excluded.
-func filterCheatsByConfig(cheats []*parser.Cheat, requireCheatBlock bool) []*parser.Cheat {
-	if !requireCheatBlock {
-		return cheats
-	}
-
-	result := make([]*parser.Cheat, 0, len(cheats))
-	for _, cheat := range cheats {
-		if cheat.HasCheatBlock {
-			result = append(result, cheat)
-		}
-	}
-	return result
 }
 
 // openFileInViewer opens filePath in the configured editor or system default.

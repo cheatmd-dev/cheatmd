@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/gubarz/cheatmd/internal/headless"
 	"github.com/gubarz/cheatmd/internal/ui"
 	"github.com/gubarz/cheatmd/pkg/config"
 	"github.com/gubarz/cheatmd/pkg/executor"
@@ -36,6 +37,7 @@ func init() {
 	chainCmd.AddCommand(chainResetCmd)
 
 	rootCmd.PersistentFlags().StringP("query", "q", "", "Initial search query")
+	rootCmd.PersistentFlags().Bool("headless", false, "Run in headless interactive JSON-RPC mode")
 	rootCmd.PersistentFlags().StringP("match", "m", "", "Match a full command pattern and auto-fill its variables")
 	rootCmd.PersistentFlags().BoolP("print", "p", false, "Print command (default)")
 	rootCmd.PersistentFlags().BoolP("copy", "c", false, "Copy command")
@@ -138,6 +140,11 @@ func runCheats(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "Memory: Alloc=%dMB, TotalAlloc=%dMB, Sys=%dMB, HeapObjects=%d\n",
 			m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.HeapObjects)
 		return nil
+	}
+
+	headlessFlag, _ := cmd.Flags().GetBool("headless")
+	if headlessFlag {
+		return headless.Run(index, exec, query, match)
 	}
 
 	// Run the TUI (history view if --history was passed)

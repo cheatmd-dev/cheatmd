@@ -1,4 +1,4 @@
-package ui
+package resolver
 
 import (
 	"testing"
@@ -113,7 +113,7 @@ func TestPrefillScopeFromMatch(t *testing.T) {
 				t.Logf("NO MATCH")
 			}
 
-			prefillScopeFromMatch(cheat, tt.input)
+			PrefillScopeFromMatch(cheat, tt.input)
 
 			assertMapEq(t, tt.expectedScope, cheat.Scope)
 		})
@@ -131,12 +131,12 @@ func TestFindMatchingCheatPrefersSpecificCommandOverVarOnly(t *testing.T) {
 		Command: "make deploy SERVICE=$service ENV=$env LOG=run-$(date +%Y%m%d-%H%M%S).txt",
 	}
 
-	got := findMatchingCheat([]*parser.Cheat{varOnly, deploy}, input)
+	got := FindMatchingCheat([]*parser.Cheat{varOnly, deploy}, input)
 	if got != deploy {
 		t.Fatalf("matched %q, want %q", got.Header, deploy.Header)
 	}
 
-	prefillScopeFromMatch(got, input)
+	PrefillScopeFromMatch(got, input)
 	if got.Scope["service"] != "api" {
 		t.Fatalf("service = %q, want api", got.Scope["service"])
 	}
@@ -146,7 +146,7 @@ func TestFindMatchingCheatPrefersSpecificCommandOverVarOnly(t *testing.T) {
 }
 
 func TestFindMatchingCheatDoesNotUseVarOnlyAsCatchAll(t *testing.T) {
-	got := findMatchingCheat([]*parser.Cheat{
+	got := FindMatchingCheat([]*parser.Cheat{
 		{Header: "Single value", Command: "$item_name"},
 	}, "tool run thing --flag value")
 	if got != nil {
@@ -207,7 +207,7 @@ func TestInferDependentVars(t *testing.T) {
 				cheat.Scope[k] = v
 			}
 
-			inferDependentVars(cheat, index)
+			InferDependentVars(cheat, index)
 
 			assertMapEq(t, tt.expectedScope, cheat.Scope)
 		})

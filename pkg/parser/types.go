@@ -166,3 +166,17 @@ func (idx *CheatIndex) RegisterModule(cheat *Cheat) {
 	}
 	idx.Modules[cheat.Export] = NewModule(cheat)
 }
+
+// FilterByConfig filters the cheats, enforcing configuration requirements.
+func (idx *CheatIndex) FilterByConfig(requireCheatBlock bool) []*Cheat {
+	if !requireCheatBlock {
+		return idx.Cheats
+	}
+	var result []*Cheat
+	for _, cheat := range idx.Cheats {
+		if cheat.HasCheatBlock {
+			result = append(result, cheat)
+		}
+	}
+	return result
+}
