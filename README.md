@@ -102,6 +102,14 @@ Export cheat metadata as JSON or CSV for indexing and tooling:
 cheatmd dump ~/cheats --json
 ```
 
+### Headless Mode
+
+Run CheatMD without a TUI to integrate with other tools (like VS Code or Obsidian) using a JSON-RPC interface over standard I/O:
+
+```bash
+cheatmd --headless -q "docker exec"
+```
+
 ## TUI Keys
 
 | Key | Action |
@@ -127,6 +135,7 @@ Full documentation lives in the **[Wiki](../../wiki)**:
 - **[Shell Integration](../../wiki/Shell-Integration)** - widget, tmux, zellij
 - **[Linting](../../wiki/Linting)** - syntax and reference validation
 - **[Dump](../../wiki/Dump)** - metadata export
+- **[Headless Mode](../../wiki/Headless-Mode)** - JSON-RPC programmatic interface
 - **[Recipes](../../wiki/Recipes)** - copy-pasteable patterns
 
 ## Contributing

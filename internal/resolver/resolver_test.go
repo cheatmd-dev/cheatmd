@@ -1,4 +1,4 @@
-package ui
+package resolver
 
 import (
 	"reflect"
@@ -6,6 +6,60 @@ import (
 
 	"github.com/gubarz/cheatmd/pkg/parser"
 )
+
+func TestBuildMatchPattern(t *testing.T) {
+	tests := []struct {
+		name         string
+		cmd          string
+		wantVarNames []string
+	}{
+		{
+			name:         "simple var",
+			cmd:          "echo $name",
+			wantVarNames: []string{"name"},
+		},
+		{
+			name:         "var with double quotes",
+			cmd:          `curl "$url"`,
+			wantVarNames: []string{"url"},
+		},
+		{
+			name:         "var with single quotes",
+			cmd:          `ssh '$user'@host`,
+			wantVarNames: []string{"user"},
+		},
+		{
+			name:         "multiple vars",
+			cmd:          "tool run --port $port $host",
+			wantVarNames: []string{"port", "host"},
+		},
+		{
+			name:         "no vars",
+			cmd:          "echo hello world",
+			wantVarNames: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pattern, varNames := buildMatchPattern(tt.cmd)
+
+			if pattern == nil && len(tt.wantVarNames) > 0 {
+				t.Fatalf("buildMatchPattern() returned nil pattern, expected vars %v", tt.wantVarNames)
+			}
+
+			if len(varNames) != len(tt.wantVarNames) {
+				t.Fatalf("buildMatchPattern() varNames = %v, want %v", varNames, tt.wantVarNames)
+			}
+
+			for i := range varNames {
+				if varNames[i] != tt.wantVarNames[i] {
+					t.Errorf("buildMatchPattern() varNames[%d] = %q, want %q", i, varNames[i], tt.wantVarNames[i])
+				}
+			}
+		})
+	}
+}
 
 func TestParseShellArgs(t *testing.T) {
 	tests := []struct {
@@ -47,9 +101,9 @@ func TestParseShellArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseShellArgs(tt.input)
+			got := ParseShellArgs(tt.input)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseShellArgs(%q) = %v, want %v", tt.input, got, tt.want)
+				t.Errorf("ParseShellArgs(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -90,9 +144,9 @@ func TestParseSelectorOpts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseSelectorOpts(tt.args)
+			got := ParseSelectorOpts(tt.args)
 			if got != tt.want {
-				t.Errorf("parseSelectorOpts(%q) = %+v, want %+v", tt.args, got, tt.want)
+				t.Errorf("ParseSelectorOpts(%q) = %+v, want %+v", tt.args, got, tt.want)
 			}
 		})
 	}
@@ -152,16 +206,15 @@ func TestGetDisplayColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getDisplayColumn(tt.line, tt.delimiter, tt.column)
+			got := GetDisplayColumn(tt.line, tt.delimiter, tt.column)
 			if got != tt.want {
-				t.Errorf("getDisplayColumn(%q, %q, %d) = %q, want %q", tt.line, tt.delimiter, tt.column, got, tt.want)
+				t.Errorf("GetDisplayColumn(%q, %q, %d) = %q, want %q", tt.line, tt.delimiter, tt.column, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestApplyMapTransform_SelectColumn(t *testing.T) {
-	// Test select-column extraction (without --map, which requires shell)
 	tests := []struct {
 		name  string
 		value string
@@ -202,72 +255,24 @@ func TestApplyMapTransform_SelectColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := applyMapTransform(tt.value, tt.opts)
+			got := ApplyMapTransform(tt.value, tt.opts)
 			if got != tt.want {
-				t.Errorf("applyMapTransform(%q, %+v) = %q, want %q", tt.value, tt.opts, got, tt.want)
+				t.Errorf("ApplyMapTransform(%q, %+v) = %q, want %q", tt.value, tt.opts, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSplitLines(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  []string
-	}{
-		{
-			name:  "simple lines",
-			input: "one\ntwo\nthree",
-			want:  []string{"one", "two", "three"},
-		},
-		{
-			name:  "empty lines filtered",
-			input: "one\n\ntwo\n\n\nthree\n",
-			want:  []string{"one", "two", "three"},
-		},
-		{
-			name:  "whitespace trimmed",
-			input: "  one  \n\ttwo\t\n  three  ",
-			want:  []string{"one", "two", "three"},
-		},
-		{
-			name:  "carriage returns handled",
-			input: "one\r\ntwo\r\nthree\r\n",
-			want:  []string{"one", "two", "three"},
-		},
-		{
-			name:  "empty input",
-			input: "",
-			want:  nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := parser.SplitLines(tt.input)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("splitLines(%q) = %v, want %v", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestEndToEnd_DelimiterColumnPipeline tests the full pipeline:
-// shell output -> splitLines -> parseSelectorOpts -> getDisplayColumn -> applyMapTransform
 func TestEndToEnd_DelimiterColumnPipeline(t *testing.T) {
-	// Simulate: var host = echo -e "192.168.1.1,webserver\n10.0.0.1,db" --- --delimiter "," --column 2 --select-column 1
 	shellOutput := "192.168.1.1,webserver\n10.0.0.1,db"
 	selectorArgs := `--delimiter "," --column 2 --select-column 1`
 
-	// 1. Split shell output into lines
 	lines := parser.SplitLines(shellOutput)
 	if len(lines) != 2 {
 		t.Fatalf("splitLines() = %d lines, want 2", len(lines))
 	}
 
-	// 2. Parse selector options
-	opts := parseSelectorOpts(selectorArgs)
+	opts := ParseSelectorOpts(selectorArgs)
 	if opts.Delimiter != "," {
 		t.Errorf("opts.Delimiter = %q, want %q", opts.Delimiter, ",")
 	}
@@ -278,9 +283,8 @@ func TestEndToEnd_DelimiterColumnPipeline(t *testing.T) {
 		t.Errorf("opts.SelectColumn = %d, want 1", opts.SelectColumn)
 	}
 
-	// 3. Display column (what the user sees in the picker)
-	display0 := getDisplayColumn(lines[0], opts.Delimiter, opts.Column)
-	display1 := getDisplayColumn(lines[1], opts.Delimiter, opts.Column)
+	display0 := GetDisplayColumn(lines[0], opts.Delimiter, opts.Column)
+	display1 := GetDisplayColumn(lines[1], opts.Delimiter, opts.Column)
 	if display0 != "webserver" {
 		t.Errorf("display[0] = %q, want %q", display0, "webserver")
 	}
@@ -288,16 +292,13 @@ func TestEndToEnd_DelimiterColumnPipeline(t *testing.T) {
 		t.Errorf("display[1] = %q, want %q", display1, "db")
 	}
 
-	// 4. Select column (the value that gets substituted into the command)
-	// User picks line 0 -> applyMapTransform extracts select-column 1
-	selected := applyMapTransform(lines[0], opts)
+	selected := ApplyMapTransform(lines[0], opts)
 	if selected != "192.168.1.1" {
-		t.Errorf("applyMapTransform() = %q, want %q", selected, "192.168.1.1")
+		t.Errorf("ApplyMapTransform() = %q, want %q", selected, "192.168.1.1")
 	}
 
-	// User picks line 1
-	selected2 := applyMapTransform(lines[1], opts)
+	selected2 := ApplyMapTransform(lines[1], opts)
 	if selected2 != "10.0.0.1" {
-		t.Errorf("applyMapTransform() = %q, want %q", selected2, "10.0.0.1")
+		t.Errorf("ApplyMapTransform() = %q, want %q", selected2, "10.0.0.1")
 	}
 }

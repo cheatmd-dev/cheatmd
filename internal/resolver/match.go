@@ -1,4 +1,4 @@
-package ui
+package resolver
 
 import (
 	"regexp"
@@ -9,11 +9,10 @@ import (
 	"github.com/gubarz/cheatmd/pkg/parser"
 )
 
-// findMatchingCheat finds a cheat whose command pattern matches the input.
+// FindMatchingCheat finds a cheat whose command pattern matches the input.
 // It builds a regex from the cheat command (replacing $var with capture groups)
-// and returns the most specific match. A command that is only "$var" matches
-// almost anything, so first-match behavior can steal a more exact command.
-func findMatchingCheat(cheats []*parser.Cheat, input string) *parser.Cheat {
+// and returns the most specific match.
+func FindMatchingCheat(cheats []*parser.Cheat, input string) *parser.Cheat {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return nil
@@ -32,13 +31,6 @@ func findMatchingCheat(cheats []*parser.Cheat, input string) *parser.Cheat {
 }
 
 // buildMatchPattern converts a command template to a regex pattern for matching.
-//
-//	"echo $name"     -> "^echo (\S+)$"
-//	'echo "$name"'   -> '^echo "([^"]*)"$'
-//
-// Returns the pattern and a list of variable names for each capture group.
-// The slice may have duplicates (one entry per capture group) because Go
-// regex doesn't support backreferences.
 func buildMatchPattern(cmd string) (*regexp.Regexp, []string) {
 	pattern, varOrder, _ := buildMatchPatternWithScore(cmd)
 	return pattern, varOrder
@@ -89,7 +81,6 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 		afterVar := cmd[varEnd:]
 
 		if strings.HasSuffix(beforeVar, `"`) && strings.HasPrefix(afterVar, `"`) {
-			// Inside double quotes - don't include the quotes in capture.
 			current := result.String()
 			if strings.HasSuffix(current, `"`) {
 				result.Reset()
@@ -112,7 +103,6 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 		isLastVar := i == len(allMatches)-1
 		remainingText := strings.TrimSpace(cmd[varEnd:])
 		if isLastVar && remainingText == "" {
-			// Last variable at end of command - greedy to capture multi-word values.
 			result.WriteString(`(.+)`)
 		} else {
 			nextLiteralStart := varEnd
@@ -145,9 +135,9 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 	return re, varOrder, literalScore
 }
 
-// prefillScopeFromMatch extracts variable values from the matched command and
+// PrefillScopeFromMatch extracts variable values from the matched command and
 // writes them into cheat.Scope.
-func prefillScopeFromMatch(cheat *parser.Cheat, input string) {
+func PrefillScopeFromMatch(cheat *parser.Cheat, input string) {
 	input = strings.TrimSpace(input)
 	pattern, varNames := buildMatchPattern(cheat.Command)
 	if pattern == nil || len(varNames) == 0 {
@@ -172,10 +162,8 @@ func prefillScopeFromMatch(cheat *parser.Cheat, input string) {
 	}
 }
 
-// inferDependentVars reverse-engineers dependent variables from literal values.
-// Example: if auth_flags=-k and we have "if $auth_method == kerberos then
-// auth_flags := -k", we can infer auth_method=kerberos.
-func inferDependentVars(cheat *parser.Cheat, index *parser.CheatIndex) {
+// InferDependentVars reverse-engineers dependent variables from literal values.
+func InferDependentVars(cheat *parser.Cheat, index *parser.CheatIndex) {
 	if len(cheat.Scope) == 0 {
 		return
 	}
@@ -227,7 +215,6 @@ func inferDependentVars(cheat *parser.Cheat, index *parser.CheatIndex) {
 	}
 }
 
-// parseCondition parses "$var == value" or "$var != value".
 func parseCondition(cond string) (varName, op, value string) {
 	cond = strings.TrimSpace(cond)
 
@@ -250,8 +237,6 @@ func parseCondition(cond string) (varName, op, value string) {
 	return "", "", ""
 }
 
-// extractEmbeddedVars extracts variable values embedded in a literal template.
-// Example: template="-p $credential", actual="-p mypass" -> {credential: mypass}.
 func extractEmbeddedVars(template, actual string, existingScope map[string]string) map[string]string {
 	result := make(map[string]string)
 
@@ -280,7 +265,6 @@ func extractEmbeddedVars(template, actual string, existingScope map[string]strin
 			regexParts.WriteString(regexp.QuoteMeta(pattern[lastEnd:varStart]))
 		}
 
-		// Greedy for the last variable at end of string, non-greedy otherwise.
 		if i == len(varMatches)-1 && varEnd == len(pattern) {
 			regexParts.WriteString(`(.+)`)
 		} else {
