@@ -55,9 +55,84 @@ func runConvert(cmd *cobra.Command, args []string) error {
 	}
 
 	if info.IsDir() {
+		// navi conversion is special-cased: @extends crosses file boundaries
+		// so we need to parse every .cheat file into a shared index before
+		// emitting any of them. The other formats are still per-file.
+		if format == "navi" {
+			return convertNaviDirectory(inputAbs, outputPath)
+		}
 		return convertDirectory(format, inputAbs, outputPath)
 	}
 	return convertFile(format, inputAbs, outputPath)
+}
+
+// convertNaviDirectory walks every .cheat file in inputDir, parses them all
+// into a shared NaviIndex (so @extends references can resolve across files),
+// and writes one converted markdown file per source under outputDir.
+func convertNaviDirectory(inputDir, outputDir string) error {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
+	}
+
+	sources, rels, err := collectNaviSources(inputDir)
+	if err != nil {
+		return err
+	}
+	if len(sources) == 0 {
+		return nil
+	}
+
+	results := convert.ConvertNaviTree(sources)
+	for i, res := range results {
+		rel := rels[i]
+		relBase := strings.TrimSuffix(rel, filepath.Ext(rel))
+		targetFile := filepath.Join(outputDir, relBase+".md")
+		if err := os.MkdirAll(filepath.Dir(targetFile), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", targetFile, err)
+		}
+		if err := os.WriteFile(targetFile, []byte(res.Content), 0644); err != nil {
+			return fmt.Errorf("failed to write converted file %s: %w", targetFile, err)
+		}
+		fmt.Printf("✓ Converted %s (navi) -> %s\n", rel, targetFile)
+	}
+	return nil
+}
+
+// collectNaviSources walks inputDir, returning every .cheat file's content
+// alongside its relative path so the writer can preserve directory structure.
+func collectNaviSources(inputDir string) ([]convert.NaviSource, []string, error) {
+	var sources []convert.NaviSource
+	var rels []string
+
+	err := filepath.WalkDir(inputDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".cheat") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", path, err)
+		}
+		rel, err := filepath.Rel(inputDir, path)
+		if err != nil {
+			return err
+		}
+		sources = append(sources, convert.NaviSource{Path: path, Content: string(data)})
+		rels = append(rels, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("error walking directory: %w", err)
+	}
+	return sources, rels, nil
 }
 
 func convertFile(format, inputPath, outputPath string) error {

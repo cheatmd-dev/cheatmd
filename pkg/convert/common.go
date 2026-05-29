@@ -10,6 +10,14 @@ import (
 var (
 	naviPlaceholderRe = regexp.MustCompile(`<([a-zA-Z0-9_\-\.\/]+)>`)
 	tldrPlaceholderRe = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_\-\.\/]+)\s*\}\}`)
+	// shellEnvVarRe matches a shell-style environment variable reference in
+	// a navi command body. Navi uses `<name>` for its own placeholders, so any
+	// `$NAME` is conventionally a shell env var the user expects to inherit
+	// from the calling environment. Captures: `${NAME}` (group 1) and `$NAME`
+	// (group 2). cheatmd's linter warns on unknown `$` references, so the
+	// converter declares each one as `var NAME := $NAME` to bind the cheatmd
+	// var to the env value and silence the warning.
+	shellEnvVarRe = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)`)
 )
 
 // varDef holds a navi-style variable definition: an optional shell command and
