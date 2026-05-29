@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// tldrExample is one parsed `- description: \`command\`` pair from a page.
+// tldrExample is one parsed `- description: \`command\“ pair from a page.
 type tldrExample struct {
 	Desc    string
 	Command string
@@ -63,8 +63,8 @@ func (p *tldrParser) parseLine(lines []string, index int) int {
 }
 
 // readCommand returns the command body at lines[index], handling both the
-// single-line backtick form `\`cmd\`` (the spec's default) and the fenced
-// `\`\`\`sh ... \`\`\`` form (used by some real-world pages).
+// single-line backtick form `\`cmd\“ (the spec's default) and the fenced
+// `\`\`\`sh ... \`\`\“ form (used by some real-world pages).
 func readCommand(lines []string, index int) (cmd string, consumed int) {
 	line := strings.TrimSpace(lines[index])
 	if strings.HasPrefix(line, "`") && strings.HasSuffix(line, "`") && len(line) >= 2 {
