@@ -71,12 +71,105 @@ func ConvertCheat(content string, filename string) (string, error) {
 }
 
 func writeCheatEntry(sb *strings.Builder, e CheatEntry, tags []string) {
-	command, placeholders := rewriteBoth(e.Command)
+	command, placeholders := processCheatCommand(e.Command)
 
 	fmt.Fprintf(sb, "## %s\n", e.Desc)
 	writeHashtags(sb, tags)
 	sb.WriteByte('\n')
 	fmt.Fprintf(sb, "```sh\n%s\n```\n", command)
-	sb.WriteString(formatHeaderVarsBlock(placeholders))
+	if block := emitTldrVarBlock(placeholders); block != "" {
+		sb.WriteString(block)
+	}
 	sb.WriteByte('\n')
+}
+
+func processCheatCommand(command string) (string, []tldrPlaceholder) {
+	naviRaws := extractPlaceholders(command, naviPlaceholderRe)
+	tldrRaws := extractTldrPlaceholders(command)
+	bracedRaws := extractCheatBracedPlaceholders(command)
+
+	placeholders := make([]tldrPlaceholder, 0, len(naviRaws)+len(tldrRaws)+len(bracedRaws))
+	for _, raw := range naviRaws {
+		placeholders = append(placeholders, tldrPlaceholder{
+			Raw:  raw,
+			Name: sanitizeVarName(raw),
+		})
+	}
+	placeholders = append(placeholders, classifyTldrPlaceholders(tldrRaws)...)
+	for _, raw := range bracedRaws {
+		placeholders = append(placeholders, tldrPlaceholder{
+			Raw:  raw,
+			Name: sanitizeVarName(raw),
+		})
+	}
+	placeholders = uniqueCheatPlaceholders(placeholders)
+
+	for _, ph := range placeholders {
+		command = strings.ReplaceAll(command, "<"+ph.Raw+">", "$"+ph.Name)
+		command = substituteTldrPlaceholder(command, ph.Raw, ph.Name)
+		command = strings.ReplaceAll(command, "${"+ph.Raw+"}", "$"+ph.Name)
+	}
+	return command, placeholders
+}
+
+func extractCheatBracedPlaceholders(command string) []string {
+	var list []string
+	seen := make(map[string]struct{})
+	for i := 0; i < len(command)-2; i++ {
+		if command[i] == '\\' {
+			i++
+			continue
+		}
+		if command[i] != '$' || command[i+1] != '{' {
+			continue
+		}
+		end := strings.IndexByte(command[i+2:], '}')
+		if end == -1 {
+			continue
+		}
+		raw := command[i+2 : i+2+end]
+		if !isCheatBracedPlaceholderName(raw) {
+			continue
+		}
+		if _, ok := seen[raw]; !ok {
+			seen[raw] = struct{}{}
+			list = append(list, raw)
+		}
+		i += end + 2
+	}
+	return list
+}
+
+func isCheatBracedPlaceholderName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func uniqueCheatPlaceholders(placeholders []tldrPlaceholder) []tldrPlaceholder {
+	out := make([]tldrPlaceholder, 0, len(placeholders))
+	byRaw := make(map[string]string)
+	nameCount := make(map[string]int)
+	for _, ph := range placeholders {
+		if name, ok := byRaw[ph.Raw]; ok {
+			ph.Name = name
+			continue
+		}
+		uniq := nameCount[ph.Name]
+		nameCount[ph.Name] = uniq + 1
+		if uniq > 0 {
+			ph.Name = fmt.Sprintf("%s_%d", ph.Name, uniq+1)
+		}
+		byRaw[ph.Raw] = ph.Name
+		out = append(out, ph)
+	}
+	return out
 }

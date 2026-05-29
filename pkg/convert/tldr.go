@@ -17,9 +17,10 @@ type tldrExample struct {
 // fixed set (option pair, alternation) so the emitter can produce a picker
 // rather than a free-text prompt.
 type tldrPlaceholder struct {
-	Raw     string
-	Name    string
-	Choices []string
+	Raw        string
+	Name       string
+	Choices    []string
+	UseDefault bool
 }
 
 type tldrParser struct {
@@ -157,7 +158,7 @@ func classifyTldrPlaceholder(raw string) tldrPlaceholder {
 	if choices, ok := parseAlternation(raw); ok {
 		return tldrPlaceholder{Raw: raw, Choices: choices, Name: nameForAlternation(choices)}
 	}
-	return tldrPlaceholder{Raw: raw, Name: sanitizeVarName(raw)}
+	return tldrPlaceholder{Raw: raw, Name: sanitizeVarName(raw), UseDefault: true}
 }
 
 // parseOptionPair detects `[opt1|opt2]`-wrapped payloads (tldr's "alternate
@@ -253,12 +254,15 @@ func emitTldrVarBlock(placeholders []tldrPlaceholder) string {
 
 func emitTldrVarLine(ph tldrPlaceholder) string {
 	header := strconv.Quote(ph.Raw)
-	if len(ph.Choices) == 0 {
+	if len(ph.Choices) == 0 && ph.UseDefault {
 		return fmt.Sprintf("var %s = printf '%%s\\n' %s --- --header %s\n",
 			ph.Name,
 			singleQuoteForShell(ph.Raw),
 			header,
 		)
+	}
+	if len(ph.Choices) == 0 {
+		return fmt.Sprintf("var %s --- --header %s\n", ph.Name, header)
 	}
 	args := make([]string, len(ph.Choices))
 	for i, c := range ph.Choices {

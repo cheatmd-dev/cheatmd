@@ -742,12 +742,27 @@ func TestConvertTldrSkipsHeaderInfoLines(t *testing.T) {
 }
 
 func TestConvertTldrRealFixturesProduceNoStrayPlaceholders(t *testing.T) {
+	fixtureDir := filepath.Join("testdata", "tldr")
+	if _, err := os.Stat(fixtureDir); err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("real tldr fixture directory %s is not present", fixtureDir)
+		}
+		t.Fatalf("stat fixture dir %s: %v", fixtureDir, err)
+	}
+
 	// Sweep test against committed real-world tldr pages. The contract:
 	// every `{{...}}` in the source must be substituted with a `$NAME` in
 	// the converted output, and every emitted var line must reference a
 	// var that's actually used in the example's command.
 	for _, name := range []string{"tar", "curl", "grep", "find", "ssh", "git-commit"} {
 		t.Run(name, func(t *testing.T) {
+			fixturePath := filepath.Join("testdata", "tldr", name+".md")
+			if _, err := os.Stat(fixturePath); err != nil {
+				if os.IsNotExist(err) {
+					t.Skipf("real tldr fixture %s is not present", fixturePath)
+				}
+				t.Fatalf("stat fixture %s: %v", fixturePath, err)
+			}
 			src := readTestdata(t, "tldr/"+name+".md")
 			converted, err := ConvertTldr(src, name+".md")
 			if err != nil {
@@ -815,7 +830,93 @@ tar -czvf <archive.tar.gz> {{path/to/directory}}
 		t.Errorf("Expected var definition for navi placeholder, got: %s", converted)
 	}
 
-	if !strings.Contains(converted, "var path_to_directory --- --header \"path/to/directory\"") {
+	if !strings.Contains(converted, "var path_to_directory = printf '%s\\n' 'path/to/directory' --- --header \"path/to/directory\"") {
 		t.Errorf("Expected var definition for tldr placeholder, got: %s", converted)
+	}
+}
+
+func TestConvertCheatPreservesExampleValuesAsEditableDefaults(t *testing.T) {
+	input := `# Curl with header:
+curl {{[-H|--header]}} '{{Authorization: Bearer token}}' {{[-X|--request]}} {{GET|POST}} {{https://example.com}}
+
+# JSON body:
+curl {{[-d|--data]}} '{{{"name":"bob"}}}' {{http://example.com/users/1234}}
+`
+
+	converted, err := ConvertCheat(input, "curl")
+	if err != nil {
+		t.Fatalf("ConvertCheat failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "curl $header_flag '$Authorization_Bearer_token' $request_flag $GET $https_example_com") {
+		t.Errorf("Expected curl header command to be rewritten, got:\n%s", converted)
+	}
+	for _, want := range []string{
+		`var header_flag = printf '%s\n' '-H' '--header' --- --header "[-H|--header]"`,
+		`var Authorization_Bearer_token = printf '%s\n' 'Authorization: Bearer token' --- --header "Authorization: Bearer token"`,
+		`var GET = printf '%s\n' 'GET' 'POST' --- --header "GET|POST"`,
+		`var https_example_com = printf '%s\n' 'https://example.com' --- --header "https://example.com"`,
+		`var name_bob = printf '%s\n' '{"name":"bob"}' --- --header "{\"name\":\"bob\"}"`,
+	} {
+		if !strings.Contains(converted, want) {
+			t.Errorf("Expected %q in converted cheat, got:\n%s", want, converted)
+		}
+	}
+	if strings.Contains(converted, "{$name_bob}") {
+		t.Errorf("JSON placeholder must not be partially rewritten, got:\n%s", converted)
+	}
+}
+
+func TestConvertCheatMixedPlaceholderNameCollisionsAreUnique(t *testing.T) {
+	input := `# Copy:
+cp <path/to/file> {{path/to/file.bak}}
+`
+
+	converted, err := ConvertCheat(input, "copy")
+	if err != nil {
+		t.Fatalf("ConvertCheat failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "cp $path_to_file $path_to_file_bak") {
+		t.Errorf("Expected mixed placeholders to rewrite distinctly, got:\n%s", converted)
+	}
+	if strings.Count(converted, "var path_to_file ") != 1 {
+		t.Errorf("Expected one first var definition, got:\n%s", converted)
+	}
+	if !strings.Contains(converted, "var path_to_file_bak ") {
+		t.Errorf("Expected second var definition, got:\n%s", converted)
+	}
+}
+
+func TestConvertCheatBracedPlaceholdersBecomePrompts(t *testing.T) {
+	input := `# Create a pool:
+zpool create ${pool} raidz1 ${device} ${failed-device}
+
+# Preserve escaped shell template:
+npm config set //npm.intra/:_authToken=\${NPM_TOKEN}
+`
+
+	converted, err := ConvertCheat(input, "zfs")
+	if err != nil {
+		t.Fatalf("ConvertCheat failed: %v", err)
+	}
+
+	if !strings.Contains(converted, "zpool create $pool raidz1 $device $failed_device") {
+		t.Errorf("Expected braced placeholders to rewrite, got:\n%s", converted)
+	}
+	for _, want := range []string{
+		`var pool --- --header "pool"`,
+		`var device --- --header "device"`,
+		`var failed_device --- --header "failed-device"`,
+	} {
+		if !strings.Contains(converted, want) {
+			t.Errorf("Expected %q in converted cheat, got:\n%s", want, converted)
+		}
+	}
+	if !strings.Contains(converted, `\${NPM_TOKEN}`) {
+		t.Errorf("Escaped braced shell value should be preserved, got:\n%s", converted)
+	}
+	if strings.Contains(converted, `var NPM_TOKEN`) {
+		t.Errorf("Escaped braced shell value should not become a prompt, got:\n%s", converted)
 	}
 }
