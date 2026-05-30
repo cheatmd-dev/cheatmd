@@ -21,7 +21,28 @@ cheatmd                    # Browse current directory
 cheatmd ~/cheats           # Browse specific directory
 cheatmd -q "docker"        # Start with search query
 cheatmd --history          # Re-run from execution history
-cheatmd convert tldr tar.md -o ~/cheats/tar.md
+cheatmd convert tldr tar.md -o ~/cheats/tar.md # convert a tldr cheat
+cheatmd packs list         # List installable cheat packs from the registry
+cheatmd packs install      # Pick and install cheat packs (interactive)
+```
+
+### First run
+
+The first time you run `cheatmd` (before a config file exists) on an
+interactive terminal, it offers to set you up: it writes a config to
+`~/.config/cheatmd/cheatmd.yaml` and lets you pick **starter cheat packs** to
+install from the [registry](https://github.com/cheatmd-dev/registry) into
+`~/.local/share/cheatmd/cheats`. Pick packs from the checklist with `space`, confirm
+with `enter`. Point `registry_url` at a private/self-hosted `registry.yaml` to
+customize the offered packs. Setup is skipped in headless/piped invocations.
+
+You can install packs any time with the `packs` command — it doesn't depend on
+the first-run prompt:
+
+```bash
+cheatmd packs list                 # show available packs (and which are installed)
+cheatmd packs install              # interactive picker
+cheatmd packs install git docker   # install specific packs by name
 ```
 
 ## Features
@@ -143,6 +164,7 @@ cheatmd --headless -q "docker exec"
 
 Full documentation lives in the **[Wiki](../../wiki)**:
 
+- **[Getting Started](../../wiki/Getting-Started)** - first steps with CheatMD
 - **[Writing Cheats](../../wiki/Writing-Cheats)** - heading structure, code blocks, metadata
 - **[Variables](../../wiki/Variables)** - prompt, shell, and literal forms
 - **[Selector Options](../../wiki/Selector-Options)** - `--header`, `--column`, `--map`

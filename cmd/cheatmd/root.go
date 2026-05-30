@@ -35,6 +35,8 @@ func init() {
 	rootCmd.AddCommand(dumpCmd)
 	rootCmd.AddCommand(composeCmd)
 	rootCmd.AddCommand(convertCmd)
+	rootCmd.AddCommand(packsCmd)
+	rootCmd.AddCommand(initCmd)
 	chainCmd.AddCommand(chainResetCmd)
 
 	rootCmd.PersistentFlags().StringP("query", "q", "", "Initial search query")
@@ -125,7 +127,7 @@ func runCheats(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(index.Cheats) == 0 {
-		return fmt.Errorf("no cheats found in %s", absPath)
+		return fmt.Errorf("no cheats found in %s. Run `cheatmd init` to install starter packs", absPath)
 	}
 
 	// Create executor
