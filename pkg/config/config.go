@@ -1,12 +1,21 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
+
+// defaultConfigTemplate is the starter config written by WriteDefaultConfig
+// during first-run setup. Keeping it embedded keeps generated configs in sync
+// with the documented example.
+//
+//go:embed default_config.yaml
+var defaultConfigTemplate []byte
 
 // ============================================================================
 // Configuration Types
@@ -15,6 +24,7 @@ import (
 // Config holds the application configuration
 type Config struct {
 	Path                string `mapstructure:"path"`
+	RegistryURL         string `mapstructure:"registry_url"`
 	Output              string `mapstructure:"output"`
 	Shell               string `mapstructure:"shell"`
 	Editor              string `mapstructure:"editor"`
@@ -77,8 +87,13 @@ type ColumnConfig struct {
 // ============================================================================
 
 // Defaults for configuration
+// DefaultRegistryURL is the canonical cheat-pack registry manifest. Override
+// via the registry_url config key for private/self-hosted registries.
+const DefaultRegistryURL = "https://raw.githubusercontent.com/cheatmd-dev/registry/main/registry.yaml"
+
 var defaults = struct {
 	path                string
+	registryURL         string
 	output              string
 	shell               string
 	editor              string
@@ -104,6 +119,7 @@ var defaults = struct {
 	columns             ColumnConfig
 }{
 	path:                ".",
+	registryURL:         DefaultRegistryURL,
 	output:              "print",
 	shell:               "", // Set dynamically
 	editor:              "", // Empty means use system default (xdg-open/open/start)
@@ -128,12 +144,12 @@ var defaults = struct {
 	colors: ColorConfig{
 		Header:   "36",  // Cyan
 		Command:  "32",  // Green
-		Desc:     "90",  // Gray
+		Desc:     "246", // Light gray
 		Path:     "33",  // Yellow
-		Border:   "240", // Dark gray
+		Border:   "242", // Gray
 		Cursor:   "212", // Pink
 		Selected: "236", // Dark bg
-		Dim:      "241", // Dimmed
+		Dim:      "245", // Medium gray
 	},
 	columns: ColumnConfig{
 		Gap:     4,
@@ -177,6 +193,7 @@ func setDefaults() {
 	}
 
 	viper.SetDefault("path", defaults.path)
+	viper.SetDefault("registry_url", defaults.registryURL)
 	viper.SetDefault("output", defaults.output)
 	viper.SetDefault("shell", shell)
 	viper.SetDefault("editor", defaults.editor)
@@ -246,6 +263,11 @@ func configureViper() {
 // GetPath returns the cheat path with tilde expansion
 func GetPath() string {
 	return expandTilde(viper.GetString("path"))
+}
+
+// GetRegistryURL returns the cheat-pack registry manifest URL.
+func GetRegistryURL() string {
+	return viper.GetString("registry_url")
 }
 
 // GetOutput returns the output mode
@@ -476,6 +498,85 @@ func SetOutput(mode string) {
 func SetAutoSelect(enabled bool) {
 	viper.Set("auto_select", enabled)
 	cfg.AutoSelect = enabled
+}
+
+// ============================================================================
+// First-run setup
+// ============================================================================
+
+// DefaultConfigPath returns the path where WriteDefaultConfig writes the
+// starter config: ~/.config/cheatmd/cheatmd.yaml.
+func DefaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "cheatmd.yaml"
+	}
+	return filepath.Join(home, ".config", "cheatmd", "cheatmd.yaml")
+}
+
+// CheatsInstallDir returns the directory cheat packs should be installed into,
+// and where installed-pack detection looks. It is the configured cheats path
+// when the user has set one to a real directory; otherwise it falls back to
+// DefaultCheatsDir(). This keeps "where packs land" aligned with "where cheats
+// are browsed" (GetPath) instead of always using the XDG default.
+//
+// The default path is "." (browse the current directory); we treat that as
+// "unset" for install purposes so packs never land in an arbitrary cwd.
+func CheatsInstallDir() string {
+	if p := GetPath(); p != "" && p != "." {
+		return p
+	}
+	return DefaultCheatsDir()
+}
+
+// DefaultCheatsDir returns the directory where first-run setup installs
+// starter cheat packs. Cheats are user data, so they live under
+// $XDG_DATA_HOME/cheatmd/cheats (falling back to
+// ~/.local/share/cheatmd/cheats), matching where history is stored.
+func DefaultCheatsDir() string {
+	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
+		return filepath.Join(xdg, "cheatmd", "cheats")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "cheats"
+	}
+	return filepath.Join(home, ".local", "share", "cheatmd", "cheats")
+}
+
+// WriteDefaultConfig writes the embedded starter config to path, creating
+// parent directories as needed. It refuses to overwrite an existing file.
+//
+// The template's "path:" line is rewritten to the resolved DefaultCheatsDir()
+// so the config always points at the same directory first-run setup installs
+// into, even when $XDG_DATA_HOME relocates it.
+func WriteDefaultConfig(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("config already exists at %s", path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+	content := withCheatsPath(string(defaultConfigTemplate), DefaultCheatsDir())
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	return nil
+}
+
+// withCheatsPath replaces the first top-level "path:" entry in the template
+// with the given cheats directory, leaving comments and other lines intact. If
+// no such line exists (e.g. a hand-edited template), the template is returned
+// unchanged.
+func withCheatsPath(template, cheatsDir string) string {
+	lines := strings.Split(template, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "path:") {
+			lines[i] = "path: " + cheatsDir
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // ============================================================================
