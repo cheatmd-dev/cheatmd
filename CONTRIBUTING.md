@@ -5,7 +5,7 @@ Thanks for your interest in contributing.
 ## Getting started
 
 ```bash
-git clone https://github.com/Gubarz/cheatmd.git
+git clone https://github.com/cheatmd-dev/cheatmd.git
 cd cheatmd
 go build ./cmd/cheatmd
 go test ./...
@@ -44,7 +44,7 @@ the problem or the desired behavior, include it.
 
 ## Wiki
 
-Documentation lives in the [Wiki](https://github.com/Gubarz/cheatmd/wiki).
+Documentation lives in the [Wiki](https://github.com/cheatmd-dev/cheatmd/wiki).
 If you spot an error or want to add a recipe, open a PR against the wiki
 repo or mention it in an issue.
 

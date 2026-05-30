@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // CollectDependencies gathers all variable definitions and their topological ordering.

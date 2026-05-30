@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gubarz/cheatmd/pkg/convert"
+	"github.com/cheatmd-dev/cheatmd/pkg/convert"
 )
 
 var convertCmd = &cobra.Command{

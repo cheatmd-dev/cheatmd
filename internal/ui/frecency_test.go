@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
-	"github.com/gubarz/cheatmd/pkg/history"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/history"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 func TestApplyFrecencyRanksCheatPicker(t *testing.T) {

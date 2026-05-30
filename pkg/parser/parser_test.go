@@ -8,7 +8,7 @@ import (
 )
 
 func TestExtractFrontMatterTags(t *testing.T) {
-	content := []byte("---\ntags:\n  - bash\n  - networking\n  - security\nauthor: Gubarz\n---\n\n# My Cheatsheet\n")
+	content := []byte("---\ntags:\n  - bash\n  - networking\n  - security\nauthor: cheatmd-dev\n---\n\n# My Cheatsheet\n")
 	_, tags := extractFrontMatterTags(content)
 	want := []string{"bash", "networking", "security"}
 

@@ -9,10 +9,10 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/gubarz/cheatmd/pkg/chainstate"
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/history"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/history"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // Executor defines the interface required by the UI for command execution and resolution.

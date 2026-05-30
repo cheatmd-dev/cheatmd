@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gubarz/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
 // StyleManager encapsulates all TUI styles and provides methods for style operations

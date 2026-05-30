@@ -11,9 +11,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/gubarz/cheatmd/pkg/chainstate"
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // ============================================================================

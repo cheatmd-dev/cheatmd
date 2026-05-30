@@ -1,4 +1,4 @@
-module github.com/gubarz/cheatmd
+module github.com/cheatmd-dev/cheatmd
 
 go 1.26.3
 

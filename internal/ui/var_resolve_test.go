@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 func TestVarResolveArrowKeysMoveSelection(t *testing.T) {

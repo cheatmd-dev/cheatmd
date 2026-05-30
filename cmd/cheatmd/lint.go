@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gubarz/cheatmd/pkg/linter"
+	"github.com/cheatmd-dev/cheatmd/pkg/linter"
 	"github.com/spf13/cobra"
 )
 

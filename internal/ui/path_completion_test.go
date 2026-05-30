@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 func TestCompletePathValueCompletesDirectoryWithSlash(t *testing.T) {

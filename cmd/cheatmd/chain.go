@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/gubarz/cheatmd/pkg/chainstate"
-	"github.com/gubarz/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/spf13/cobra"
 )
 

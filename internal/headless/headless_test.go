@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 type mockHeadlessExecutor struct {

@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // ============================================================================

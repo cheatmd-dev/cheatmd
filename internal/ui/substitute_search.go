@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/gubarz/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
 // substituteSearchState holds the overlay state for substitute search.

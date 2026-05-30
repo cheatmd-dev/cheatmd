@@ -10,11 +10,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/gubarz/cheatmd/internal/resolver"
-	"github.com/gubarz/cheatmd/pkg/chainstate"
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/history"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
+	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/history"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // recordRun appends one entry to the history file. Errors are silently

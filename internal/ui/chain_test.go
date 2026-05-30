@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gubarz/cheatmd/pkg/chainstate"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 func TestChainQuerySelectsNextStoredStep(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gubarz/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/spf13/cobra"
 )
 

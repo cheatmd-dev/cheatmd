@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 func TestFindCheatHeaderSourceLineSkipsSameNamedPageHeader(t *testing.T) {

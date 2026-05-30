@@ -4,9 +4,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // FindMatchingCheat finds a cheat whose command pattern matches the input.

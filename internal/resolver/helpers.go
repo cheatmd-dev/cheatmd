@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/gubarz/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
 // GetDisplayColumn extracts the display column from a line based on a delimiter.

@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gubarz/cheatmd/internal/resolver"
-	"github.com/gubarz/cheatmd/pkg/config"
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // Executor defines the interface required by the headless runner for shell command execution.

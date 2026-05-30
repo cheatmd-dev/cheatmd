@@ -3,8 +3,8 @@ package resolver
 import (
 	"fmt"
 
-	"github.com/gubarz/cheatmd/pkg/executor"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/pkg/executor"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // SelectOptions holds display and extraction options for selectors.

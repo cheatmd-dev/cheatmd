@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/gubarz/cheatmd/internal/resolver"
-	"github.com/gubarz/cheatmd/pkg/parser"
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
+	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
 // ============================================================================

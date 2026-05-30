@@ -1,7 +1,7 @@
 # CheatMD
 
-[![CI](https://github.com/Gubarz/cheatmd/actions/workflows/ci.yml/badge.svg)](https://github.com/Gubarz/cheatmd/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/gubarz/cheatmd)](https://goreportcard.com/report/github.com/gubarz/cheatmd)
+[![CI](https://github.com/cheatmd-dev/cheatmd/actions/workflows/ci.yml/badge.svg)](https://github.com/cheatmd-dev/cheatmd/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cheatmd-dev/cheatmd)](https://goreportcard.com/report/github.com/cheatmd-dev/cheatmd)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Executable Markdown cheatsheets. Write readable docs, run interactive commands.
@@ -11,7 +11,7 @@ Executable Markdown cheatsheets. Write readable docs, run interactive commands.
 ## Install
 
 ```bash
-go install github.com/gubarz/cheatmd/cmd/cheatmd@latest
+go install github.com/cheatmd-dev/cheatmd/cmd/cheatmd@latest
 ```
 
 ## Quick Start
