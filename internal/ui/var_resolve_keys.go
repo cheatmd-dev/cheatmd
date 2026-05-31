@@ -114,7 +114,7 @@ func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg, dir int) tea.Cmd {
 				p.Cursor = len(p.Filtered) - 1
 				p.Offset = max(0, p.Cursor-9)
 			}
-			
+
 			if newOpt, newOk := p.Selected(); newOk {
 				m.textInput.SetValue(newOpt.Display)
 				m.textInput.CursorEnd()
