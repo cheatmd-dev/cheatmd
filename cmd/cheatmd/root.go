@@ -13,6 +13,7 @@ import (
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var rootCmd = &cobra.Command{
@@ -192,12 +193,16 @@ func executeHeadlessOrTUI(cmd *cobra.Command, index *parser.CheatIndex, exec *ex
 
 	switch config.Get().Output {
 	case "exec":
-		fmt.Fprint(cmd.ErrOrStderr(), finalCmd)
+		fmt.Fprint(cmd.ErrOrStderr(), ui.StripANSI(finalCmd))
 		return exec.OutputWithMode(finalCmd, executor.OutputExec)
 	case "copy":
 		return exec.OutputWithMode(finalCmd, executor.OutputCopy)
 	default: // print
-		fmt.Fprint(cmd.OutOrStdout(), finalCmd)
+		if term.IsTerminal(int(os.Stdout.Fd())) {
+			fmt.Fprint(cmd.OutOrStdout(), ui.StripANSI(finalCmd))
+		} else {
+			fmt.Fprint(cmd.OutOrStdout(), finalCmd)
+		}
 		return nil
 	}
 }

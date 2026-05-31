@@ -412,17 +412,17 @@ func (m *mainModel) renderListItem(item cheatItem, selected bool, gap string) st
 	pStyle, hStyle, dStyle, cStyle := m.getItemStyles(selected)
 
 	pathPart := buildPathDisplay(item.folder, item.file)
-	headerPart := item.cheat.Header
+	headerPart := StripANSI(item.cheat.Header)
 	if item.chainName != "" {
 		headerPart = "/chain " + item.chainName + " " + strconv.Itoa(item.chainStep) + "/" + strconv.Itoa(item.chainTotal) + " " + headerPart
 	}
 	headerRendered := m.renderHeaderColumn(pathPart, headerPart, pStyle, hStyle, selected)
 
-	desc := truncateString(firstLine(item.cheat.Description), m.columns.descWidth)
+	desc := StripANSI(truncateString(firstLine(item.cheat.Description), m.columns.descWidth))
 	descPadded := runewidth.FillRight(desc, m.columns.descWidth)
 
 	maxCmd := m.calculateCommandWidth()
-	cmd := truncateString(firstLine(item.cheat.Command), maxCmd)
+	cmd := StripANSI(truncateString(firstLine(item.cheat.Command), maxCmd))
 
 	gapStr := gap
 	if selected {
