@@ -13,11 +13,11 @@ import (
 // env/history value, and returns to phaseVarResolve with the chosen value
 // loaded into the var prompt.
 type substituteSearchState struct {
-	picker *Picker[substituteOption]
+	picker	*Picker[substituteOption]
 
-	prevInput  string // textInput value before entering the overlay
-	prevCursor int
-	prevOffset int
+	prevInput	string	// textInput value before entering the overlay
+	prevCursor	int
+	prevOffset	int
 }
 
 // updateSubstituteSearch handles updates while the substitute overlay is open.
@@ -29,7 +29,7 @@ func (m *mainModel) updateSubstituteSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// If the key was a navigation/accept/cancel key we already handled it;
 		// otherwise fall through and let the text input absorb it.
-		if isSubstituteNavKey(msg.String()) {
+		if isOverlayNavKey(msg.String()) {
 			return m, nil
 		}
 	}
@@ -43,21 +43,11 @@ func (m *mainModel) updateSubstituteSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tiCmd
 }
 
-// isSubstituteNavKey reports whether key is a navigation/accept/cancel key
-// that the overlay handles directly (rather than passing to the text input).
-func isSubstituteNavKey(key string) bool {
-	switch key {
-	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
-		return true
-	}
-	return false
-}
-
 // enterSubstituteSearch transitions from phaseVarResolve into the substitute
 // search overlay. Returns true if the transition happened; false if disabled
 // or there are no sources to show.
 func (m *mainModel) enterSubstituteSearch() bool {
-	sources := config.GetSubstituteSources()
+	sources := config.Get().SubstituteSources
 	if len(sources) == 0 {
 		return false
 	}
@@ -70,9 +60,9 @@ func (m *mainModel) enterSubstituteSearch() bool {
 			hay := strings.ToLower(opt.Display)
 			return matchesAllWords(hay, words)
 		}),
-		prevInput:  m.textInput.Value(),
-		prevCursor: m.picker.Cursor,
-		prevOffset: m.picker.Offset,
+		prevInput:	m.textInput.Value(),
+		prevCursor:	m.picker.Cursor,
+		prevOffset:	m.picker.Offset,
 	}
 	m.textInput.SetValue("")
 	m.textInput.Placeholder = "Search env / history..."
@@ -174,13 +164,13 @@ func (m *mainModel) renderSubstituteSearch() string {
 	}
 
 	return m.renderOverlayWindow(OverlayConfig{
-		Title:         "Substitute search",
-		TitleExtra:    extra,
-		MatchesCount:  matchCount,
-		EnterHint:     "Enter use value",
-		Items:         items,
-		SelectedIndex: cursor,
-		Offset:        offset,
-		Input:         m.textInput,
+		Title:		"Substitute search",
+		TitleExtra:	extra,
+		MatchesCount:	matchCount,
+		EnterHint:	"Enter use value",
+		Items:		items,
+		SelectedIndex:	cursor,
+		Offset:		offset,
+		Input:		m.textInput,
 	})
 }

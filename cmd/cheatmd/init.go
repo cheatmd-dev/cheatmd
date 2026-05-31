@@ -20,8 +20,8 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize CheatMD config and install starter cheats",
+	Use:	"init",
+	Short:	"Initialize CheatMD config and install starter cheats",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -59,7 +59,7 @@ var initCmd = &cobra.Command{
 // failures are non-fatal: they print a note and leave the user with a config
 // but no cheats.
 func installStarterPacks(cmd *cobra.Command, out io.Writer) string {
-	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
+	reg, err := registry.Fetch(cmd.Context(), config.Get().RegistryURL)
 	if err != nil {
 		fmt.Fprintf(out, "Could not fetch the cheat registry: %v\n", err)
 		fmt.Fprintln(out, "Skipping official cheat packs — you can add packs later with `cheatmd packs install`.")
@@ -113,9 +113,9 @@ func installPacks(ctx context.Context, out io.Writer, packs []registry.Pack) (de
 			continue
 		}
 		manifest.Upsert(packmanifest.Entry{
-			Name:        pack.Name,
-			Repo:        pack.Repo,
-			InstalledAt: time.Now(),
+			Name:		pack.Name,
+			Repo:		pack.Repo,
+			InstalledAt:	time.Now(),
 		})
 		installed++
 	}

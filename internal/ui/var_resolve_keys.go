@@ -10,13 +10,39 @@ import (
 
 // handleVarResolveKey processes keyboard input during variable resolution.
 func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
+	if cmd := m.handleVarResolveNavKey(msg); cmd != nil {
+		return cmd
+	}
+
+	switch msg.String() {
+	case "enter":
+		return m.acceptVarValue(false)
+	case "alt+enter", "ctrl+j":
+		return m.acceptVarValue(true)
+	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
+		if !m.varState.isPromptOnly && m.varState.picker != nil {
+			m.varState.picker.HandleKey(msg)
+		}
+		return nil
+	case "tab":
+		return m.handleVarResolveTab(msg)
+	case " ":
+		if cmd := m.handleVarResolveSpace(msg); cmd != nil {
+			return cmd
+		}
+	default:
+		return m.handleVarResolveDefaultKey(msg)
+	}
+	return nil
+}
+
+func (m *mainModel) handleVarResolveNavKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+c":
 		m.quitting = true
 		m.selected = nil
 		return tea.Quit
 	case "esc":
-		// Go back to previous var or cheat selection.
 		if m.varState.currentIdx > 0 {
 			m.varState.currentIdx--
 			vs := &m.varState.vars[m.varState.currentIdx]
@@ -24,8 +50,10 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 			vs.value = ""
 			vs.skipAutoCont = true
 			m.textInput.SetValue("")
-			m.picker.Cursor = 0
-			m.picker.Offset = 0
+			if m.varState.picker != nil {
+				m.picker.Cursor = 0
+				m.picker.Offset = 0
+			}
 			return m.prepareCurrentVar()
 		}
 		m.phase = phaseCheatSelect
@@ -37,63 +65,61 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 		m.picker.Cursor = 0
 		m.picker.Offset = 0
 		return nil
-	case "enter":
-		return m.acceptVarValue(false)
-	case "alt+enter", "ctrl+j":
-		return m.acceptVarValue(true)
-	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
-		if !m.varState.isPromptOnly && m.varState.picker != nil {
-			m.varState.picker.HandleKey(msg)
-		}
+	}
+	return nil
+}
+
+func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg) tea.Cmd {
+	if m.completePathFromInput() {
 		return nil
-	case "tab":
-		if m.completePathFromInput() {
-			return nil
+	}
+	if !m.varState.isPromptOnly && m.varState.picker != nil {
+		if opt, ok := m.varState.picker.Selected(); ok {
+			m.textInput.SetValue(opt.Display)
+			m.textInput.CursorEnd()
 		}
-		if !m.varState.isPromptOnly && m.varState.picker != nil {
-			if opt, ok := m.varState.picker.Selected(); ok {
-				m.textInput.SetValue(opt.Display)
-				m.textInput.CursorEnd()
-			}
-		}
-	case " ":
-		if m.varState.selectOpts.Multi && !m.varState.isPromptOnly && m.varState.picker != nil {
-			if opt, ok := m.varState.picker.Selected(); ok {
-				vs := &m.varState.vars[m.varState.currentIdx]
-				original := opt.Original
-				if vs.multiSelectedSet[original] {
-					vs.multiSelectedSet[original] = false
-					// Remove from multiSelected list
-					for i, val := range vs.multiSelected {
-						if val == original {
-							vs.multiSelected = append(vs.multiSelected[:i], vs.multiSelected[i+1:]...)
-							break
-						}
+	}
+	return nil
+}
+
+func (m *mainModel) handleVarResolveSpace(msg tea.KeyMsg) tea.Cmd {
+	if m.varState.selectOpts.Multi && !m.varState.isPromptOnly && m.varState.picker != nil {
+		if opt, ok := m.varState.picker.Selected(); ok {
+			vs := &m.varState.vars[m.varState.currentIdx]
+			original := opt.Original
+			if vs.multiSelectedSet[original] {
+				vs.multiSelectedSet[original] = false
+				for i, val := range vs.multiSelected {
+					if val == original {
+						vs.multiSelected = append(vs.multiSelected[:i], vs.multiSelected[i+1:]...)
+						break
 					}
-				} else {
-					vs.multiSelectedSet[original] = true
-					vs.multiSelected = append(vs.multiSelected, original)
 				}
-				// Don't pass space to text input, just return nil to re-render
-				return nil
+			} else {
+				vs.multiSelectedSet[original] = true
+				vs.multiSelected = append(vs.multiSelected, original)
 			}
+			return func() tea.Msg { return nil }	// Return a non-nil dummy command to bypass text input
 		}
-	default:
-		if msg.String() == config.GetKeyOpen() {
-			if m.varState != nil && m.varState.cheat != nil {
-				openFileInViewer(m.varState.cheat.File)
-			}
+	}
+	return nil
+}
+
+func (m *mainModel) handleVarResolveDefaultKey(msg tea.KeyMsg) tea.Cmd {
+	if msg.String() == config.Get().KeyOpen {
+		if m.varState != nil && m.varState.cheat != nil {
+			openFileInViewer(m.varState.cheat.File)
 		}
-		if msg.String() == config.GetKeySubstitute() {
-			if m.enterSubstituteSearch() {
-				return tea.Batch(tea.ClearScreen, textinput.Blink)
-			}
+	}
+	if msg.String() == config.Get().KeySubstitute {
+		if m.enterSubstituteSearch() {
+			return tea.Batch(tea.ClearScreen, textinput.Blink)
 		}
-		if msg.String() == config.GetKeyPreview() {
-			if m.varState != nil && m.varState.cheat != nil {
-				if m.enterPreview(m.varState.cheat) {
-					return tea.ClearScreen
-				}
+	}
+	if msg.String() == config.Get().KeyPreview {
+		if m.varState != nil && m.varState.cheat != nil {
+			if m.enterPreview(m.varState.cheat) {
+				return tea.ClearScreen
 			}
 		}
 	}

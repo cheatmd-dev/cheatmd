@@ -70,10 +70,7 @@ func extractCustomHeader(selectorArgs string) string {
 	return resolver.ExtractCustomHeader(selectorArgs)
 }
 
-// parseShellArgs parses a string into arguments, respecting quotes
-func parseShellArgs(s string) []string {
-	return resolver.ParseShellArgs(s)
-}
+
 
 // applyMapTransform transforms the selected value based on options
 func applyMapTransform(value string, opts SelectOptions) string {

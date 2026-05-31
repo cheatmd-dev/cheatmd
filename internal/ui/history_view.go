@@ -13,23 +13,23 @@ import (
 
 // historyState holds the overlay state for the execution-history picker.
 type historyState struct {
-	picker *Picker[history.Entry]
+	picker	*Picker[history.Entry]
 
 	// Saved cheat-select state to restore on cancel.
-	prevInput  string
-	prevCursor int
-	prevOffset int
+	prevInput	string
+	prevCursor	int
+	prevOffset	int
 }
 
 // enterHistory transitions from phaseCheatSelect into the history overlay.
 // Returns true on success, false if there are no entries or history is
 // otherwise unavailable.
 func (m *mainModel) enterHistory() bool {
-	path, err := history.DefaultPath(config.GetHistoryFile())
+	path, err := history.DefaultPath(config.Get().HistoryFile)
 	if err != nil {
 		return false
 	}
-	entries, err := history.Load(path, config.GetHistoryMax())
+	entries, err := history.Load(path, config.Get().HistoryMax)
 	if err != nil || len(entries) == 0 {
 		return false
 	}
@@ -38,9 +38,9 @@ func (m *mainModel) enterHistory() bool {
 			hay := strings.ToLower(e.Command + " " + e.Header + " " + e.File)
 			return matchesAllWords(hay, words)
 		}),
-		prevInput:  m.textInput.Value(),
-		prevCursor: m.picker.Cursor,
-		prevOffset: m.picker.Offset,
+		prevInput:	m.textInput.Value(),
+		prevCursor:	m.picker.Cursor,
+		prevOffset:	m.picker.Offset,
 	}
 	m.textInput.SetValue("")
 	m.textInput.Placeholder = "Search history..."
@@ -130,7 +130,7 @@ func (m *mainModel) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd := m.handleHistoryKey(msg); cmd != nil {
 			return m, cmd
 		}
-		if isHistoryNavKey(msg.String()) {
+		if isOverlayNavKey(msg.String()) {
 			return m, nil
 		}
 	}
@@ -142,16 +142,6 @@ func (m *mainModel) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.filterHistoryEntries()
 	}
 	return m, tiCmd
-}
-
-// isHistoryNavKey mirrors isSubstituteNavKey: navigation/accept/cancel keys
-// the overlay swallows rather than passing to the text input.
-func isHistoryNavKey(key string) bool {
-	switch key {
-	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
-		return true
-	}
-	return false
 }
 
 // renderHistory renders the history overlay using the shared overlay layout.
@@ -178,14 +168,14 @@ func (m *mainModel) renderHistory() string {
 	}
 
 	return m.renderOverlayWindow(OverlayConfig{
-		Title:         "History",
-		TitleExtra:    extra,
-		MatchesCount:  matchCount,
-		EnterHint:     "Enter re-run cheat",
-		Items:         items,
-		SelectedIndex: cursor,
-		Offset:        offset,
-		Input:         m.textInput,
+		Title:		"History",
+		TitleExtra:	extra,
+		MatchesCount:	matchCount,
+		EnterHint:	"Enter re-run cheat",
+		Items:		items,
+		SelectedIndex:	cursor,
+		Offset:		offset,
+		Input:		m.textInput,
 	})
 }
 

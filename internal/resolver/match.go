@@ -37,19 +37,7 @@ func buildMatchPattern(cmd string) (*regexp.Regexp, []string) {
 }
 
 func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
-	var parts []string
-	if config.VarSyntaxAllowsDollar() {
-		parts = append(parts, `\$(\w+)`)
-	}
-	if config.VarSyntaxAllowsAngle() {
-		parts = append(parts, `<(\w+)>`)
-	}
-	if len(parts) == 0 {
-		parts = append(parts, `\$(\w+)`)
-	}
-	varPattern := regexp.MustCompile(strings.Join(parts, "|"))
-	allMatches := varPattern.FindAllStringSubmatchIndex(cmd, -1)
-
+	allMatches := extractVariableMatches(cmd)
 	var varOrder []string
 	literalScore := 0
 
@@ -58,16 +46,7 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 	lastEnd := 0
 
 	for i, match := range allMatches {
-		varStart := match[0]
-		varEnd := match[1]
-
-		var varName string
-		for j := 2; j < len(match); j += 2 {
-			if match[j] != -1 {
-				varName = cmd[match[j]:match[j+1]]
-				break
-			}
-		}
+		varStart, varEnd, varName := extractMatchBounds(cmd, match)
 
 		if varStart > lastEnd {
 			literal := cmd[lastEnd:varStart]
@@ -76,49 +55,7 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 		}
 
 		varOrder = append(varOrder, varName)
-
-		beforeVar := cmd[:varStart]
-		afterVar := cmd[varEnd:]
-
-		if strings.HasSuffix(beforeVar, `"`) && strings.HasPrefix(afterVar, `"`) {
-			current := result.String()
-			if strings.HasSuffix(current, `"`) {
-				result.Reset()
-				result.WriteString(current[:len(current)-1])
-			}
-			result.WriteString(`"([^"]*)"`)
-			lastEnd = varEnd + 1
-			continue
-		} else if strings.HasSuffix(beforeVar, `'`) && strings.HasPrefix(afterVar, `'`) {
-			current := result.String()
-			if strings.HasSuffix(current, `'`) {
-				result.Reset()
-				result.WriteString(current[:len(current)-1])
-			}
-			result.WriteString(`'([^']*)'`)
-			lastEnd = varEnd + 1
-			continue
-		}
-
-		isLastVar := i == len(allMatches)-1
-		remainingText := strings.TrimSpace(cmd[varEnd:])
-		if isLastVar && remainingText == "" {
-			result.WriteString(`(.+)`)
-		} else {
-			nextLiteralStart := varEnd
-			nextLiteralEnd := len(cmd)
-			if i+1 < len(allMatches) {
-				nextLiteralEnd = allMatches[i+1][0]
-			}
-			nextLiteral := strings.TrimSpace(cmd[nextLiteralStart:nextLiteralEnd])
-
-			if nextLiteral != "" {
-				result.WriteString(`(.+?)`)
-			} else {
-				result.WriteString(`(\S+)`)
-			}
-		}
-		lastEnd = varEnd
+		lastEnd = appendRegexForVariable(&result, cmd, varStart, varEnd, i, allMatches)
 	}
 
 	if lastEnd < len(cmd) {
@@ -133,6 +70,77 @@ func buildMatchPatternWithScore(cmd string) (*regexp.Regexp, []string, int) {
 		return regexp.MustCompile(`^$`), nil, 0
 	}
 	return re, varOrder, literalScore
+}
+
+func extractVariableMatches(cmd string) [][]int {
+	var parts []string
+	if config.VarSyntaxAllowsDollar() {
+		parts = append(parts, `\$(\w+)`)
+	}
+	if config.VarSyntaxAllowsAngle() {
+		parts = append(parts, `<(\w+)>`)
+	}
+	if len(parts) == 0 {
+		parts = append(parts, `\$(\w+)`)
+	}
+	varPattern := regexp.MustCompile(strings.Join(parts, "|"))
+	return varPattern.FindAllStringSubmatchIndex(cmd, -1)
+}
+
+func extractMatchBounds(cmd string, match []int) (int, int, string) {
+	varStart := match[0]
+	varEnd := match[1]
+	var varName string
+	for j := 2; j < len(match); j += 2 {
+		if match[j] != -1 {
+			varName = cmd[match[j]:match[j+1]]
+			break
+		}
+	}
+	return varStart, varEnd, varName
+}
+
+func appendRegexForVariable(result *strings.Builder, cmd string, varStart, varEnd, matchIndex int, allMatches [][]int) int {
+	beforeVar := cmd[:varStart]
+	afterVar := cmd[varEnd:]
+
+	if strings.HasSuffix(beforeVar, `"`) && strings.HasPrefix(afterVar, `"`) {
+		current := result.String()
+		if strings.HasSuffix(current, `"`) {
+			result.Reset()
+			result.WriteString(current[:len(current)-1])
+		}
+		result.WriteString(`"([^"]*)"`)
+		return varEnd + 1
+	} else if strings.HasSuffix(beforeVar, `'`) && strings.HasPrefix(afterVar, `'`) {
+		current := result.String()
+		if strings.HasSuffix(current, `'`) {
+			result.Reset()
+			result.WriteString(current[:len(current)-1])
+		}
+		result.WriteString(`'([^']*)'`)
+		return varEnd + 1
+	}
+
+	isLastVar := matchIndex == len(allMatches)-1
+	remainingText := strings.TrimSpace(cmd[varEnd:])
+	if isLastVar && remainingText == "" {
+		result.WriteString(`(.+)`)
+	} else {
+		nextLiteralStart := varEnd
+		nextLiteralEnd := len(cmd)
+		if matchIndex+1 < len(allMatches) {
+			nextLiteralEnd = allMatches[matchIndex+1][0]
+		}
+		nextLiteral := strings.TrimSpace(cmd[nextLiteralStart:nextLiteralEnd])
+
+		if nextLiteral != "" {
+			result.WriteString(`(.+?)`)
+		} else {
+			result.WriteString(`(\S+)`)
+		}
+	}
+	return varEnd
 }
 
 // PrefillScopeFromMatch extracts variable values from the matched command and
@@ -154,10 +162,11 @@ func PrefillScopeFromMatch(cheat *parser.Cheat, input string) {
 	}
 
 	for i, name := range varNames {
-		if i+1 < len(matches) {
-			if _, exists := cheat.Scope[name]; !exists {
-				cheat.Scope[name] = matches[i+1]
-			}
+		if i+1 >= len(matches) {
+			continue
+		}
+		if _, exists := cheat.Scope[name]; !exists {
+			cheat.Scope[name] = matches[i+1]
 		}
 	}
 }
@@ -179,40 +188,48 @@ func InferDependentVars(cheat *parser.Cheat, index *parser.CheatIndex) {
 				continue
 			}
 
-			for _, def := range defs {
-				if def.Literal == "" || def.Condition == "" {
-					continue
-				}
-
-				condVar, condOp, condValue := parseCondition(def.Condition)
-				if condVar == "" {
-					continue
-				}
-
-				if _, exists := cheat.Scope[condVar]; exists {
-					continue
-				}
-
-				literalResult := executor.SubstituteVars(def.Literal, cheat.Scope, "dollar")
-
-				if strings.Contains(literalResult, "$") {
-					extracted := extractEmbeddedVars(def.Literal, prefillValue, cheat.Scope)
-					for k, v := range extracted {
-						if _, exists := cheat.Scope[k]; !exists {
-							cheat.Scope[k] = v
-							changed = true
-						}
-					}
-					literalResult = executor.SubstituteVars(def.Literal, cheat.Scope, "dollar")
-				}
-
-				if literalResult == prefillValue && condOp == "==" {
-					cheat.Scope[condVar] = condValue
-					changed = true
-				}
+			if inferFromDefinitions(cheat, defs, prefillValue) {
+				changed = true
 			}
 		}
 	}
+}
+
+func inferFromDefinitions(cheat *parser.Cheat, defs []parser.VarDef, prefillValue string) bool {
+	changed := false
+	for _, def := range defs {
+		if def.Literal == "" || def.Condition == "" {
+			continue
+		}
+
+		condVar, condOp, condValue := parseCondition(def.Condition)
+		if condVar == "" {
+			continue
+		}
+
+		if _, exists := cheat.Scope[condVar]; exists {
+			continue
+		}
+
+		literalResult := executor.SubstituteVars(def.Literal, cheat.Scope, "dollar")
+
+		if strings.Contains(literalResult, "$") {
+			extracted := extractEmbeddedVars(def.Literal, prefillValue, cheat.Scope)
+			for k, v := range extracted {
+				if _, exists := cheat.Scope[k]; !exists {
+					cheat.Scope[k] = v
+					changed = true
+				}
+			}
+			literalResult = executor.SubstituteVars(def.Literal, cheat.Scope, "dollar")
+		}
+
+		if literalResult == prefillValue && condOp == "==" {
+			cheat.Scope[condVar] = condValue
+			changed = true
+		}
+	}
+	return changed
 }
 
 func parseCondition(cond string) (varName, op, value string) {

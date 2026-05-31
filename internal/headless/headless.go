@@ -25,30 +25,30 @@ type Executor interface {
 
 // promptVar defines the JSON-RPC structure for prompting variables.
 type promptVar struct {
-	Name        string   `json:"name"`
-	Header      string   `json:"header"`
-	Placeholder string   `json:"placeholder"`
-	Options     []string `json:"options"`
-	Multi       bool     `json:"multi"`
-	varIdx      int      `json:"-"`
+	Name		string		`json:"name"`
+	Header		string		`json:"header"`
+	Placeholder	string		`json:"placeholder"`
+	Options		[]string	`json:"options"`
+	Multi		bool		`json:"multi"`
+	varIdx		int		`json:"-"`
 }
 
 // RunnerSession encapsulates the state and lifecycle of a command execution process.
 // It orchestrates variable resolution and final command execution.
 type RunnerSession struct {
-	Index   *parser.CheatIndex
-	Exec    Executor
-	Cheat   *parser.Cheat
-	Vars    []resolver.VarState
-	Scanner *bufio.Scanner
+	Index	*parser.CheatIndex
+	Exec	Executor
+	Cheat	*parser.Cheat
+	Vars	[]resolver.VarState
+	Scanner	*bufio.Scanner
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
 func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string) error {
 	session := &RunnerSession{
-		Index:   index,
-		Exec:    exec,
-		Scanner: bufio.NewScanner(os.Stdin),
+		Index:		index,
+		Exec:		exec,
+		Scanner:	bufio.NewScanner(os.Stdin),
 	}
 	return session.Execute(initialQuery, matchCmd)
 }
@@ -68,7 +68,7 @@ func (s *RunnerSession) Execute(initialQuery, matchCmd string) error {
 
 // findTargetCheat scans the provided index for the optimal cheat block to run.
 func (s *RunnerSession) findTargetCheat(initialQuery, matchCmd string) error {
-	cheats := s.Index.FilterByConfig(config.GetRequireCheatBlock())
+	cheats := s.Index.FilterByConfig(config.Get().RequireCheatBlock)
 	if len(cheats) == 0 {
 		return fmt.Errorf("no executable cheats found in index")
 	}
@@ -145,32 +145,32 @@ func (s *RunnerSession) findExactHeaderMatch(cheats []*parser.Cheat, query strin
 // executes the command on the target shell, and reports the output via JSON-RPC.
 func (s *RunnerSession) runCommand() error {
 	finalCmd := s.buildAndRecordCommand()
-	runErr, stdout, stderr := s.executeWithConfiguredMode(finalCmd)
+	stdout, stderr, runErr := s.executeWithConfiguredMode(finalCmd)
 	return s.reportCompletion(finalCmd, stdout, stderr, runErr)
 }
 
 func (s *RunnerSession) buildAndRecordCommand() string {
 	finalCmd := s.Exec.BuildFinalCommand(s.Cheat)
 
-	if preHook := config.GetPreHook(); preHook != "" {
+	if preHook := config.Get().PreHook; preHook != "" {
 		finalCmd = preHook + finalCmd
 	}
-	if postHook := config.GetPostHook(); postHook != "" {
+	if postHook := config.Get().PostHook; postHook != "" {
 		finalCmd = finalCmd + postHook
 	}
 	return finalCmd
 }
 
-func (s *RunnerSession) executeWithConfiguredMode(finalCmd string) (error, string, string) {
-	switch config.GetOutput() {
+func (s *RunnerSession) executeWithConfiguredMode(finalCmd string) (string, string, error) {
+	switch config.Get().Output {
 	case "exec":
-		stdout, stderr, err := runCommandAndCapture(config.GetShell(), finalCmd)
-		return err, stdout, stderr
+		stdout, stderr, err := runCommandAndCapture(config.Get().Shell, finalCmd)
+		return stdout, stderr, err
 	case "copy":
 		err := s.Exec.OutputWithMode(finalCmd, executor.OutputCopy)
-		return err, "", ""
-	default: // print
-		return nil, finalCmd, ""
+		return "", "", err
+	default:	// print
+		return finalCmd, "", nil
 	}
 }
 
@@ -178,15 +178,15 @@ func (s *RunnerSession) reportCompletion(finalCmd, stdout, stderr string, runErr
 	status, errMsg := s.determineRunStatus(runErr)
 
 	completedFrame := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  "completed",
+		"jsonrpc":	"2.0",
+		"method":	"completed",
 		"params": map[string]interface{}{
-			"status":    status,
-			"command":   finalCmd,
-			"stdout":    stdout,
-			"stderr":    stderr,
-			"error":     errMsg,
-			"exit_code": getExitCode(runErr),
+			"status":	status,
+			"command":	finalCmd,
+			"stdout":	stdout,
+			"stderr":	stderr,
+			"error":	errMsg,
+			"exit_code":	getExitCode(runErr),
 		},
 	}
 

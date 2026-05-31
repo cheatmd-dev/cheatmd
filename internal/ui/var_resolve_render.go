@@ -129,10 +129,10 @@ func (m *mainModel) renderVarHeader(width int) string {
 	progressCmd := m.varState.cheat.Command
 	for i, vs := range m.varState.vars {
 		if vs.resolved {
-			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Header.Render(vs.value), config.GetVarSyntax())
+			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Header.Render(vs.value), config.Get().VarSyntax)
 		} else if i == m.varState.currentIdx {
 			displayStr := formatVarName(m.varState.cheat.Command, vs.def.Name)
-			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Cursor.Render(displayStr), config.GetVarSyntax())
+			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Cursor.Render(displayStr), config.Get().VarSyntax)
 		}
 	}
 	b.WriteString(progressCmd)
@@ -169,9 +169,9 @@ func (m *mainModel) renderVarHeader(width int) string {
 // formatVarName returns the variable name formatted according to how it appears in the command,
 // or defaults based on the syntax config.
 func formatVarName(cmd string, name string) string {
-	if config.GetVarSyntax() == "angle" {
+	if config.Get().VarSyntax == "angle" {
 		return "<" + name + ">"
-	} else if config.GetVarSyntax() == "both" {
+	} else if config.Get().VarSyntax == "both" {
 		if strings.Contains(cmd, "<"+name+">") {
 			return "<" + name + ">"
 		}

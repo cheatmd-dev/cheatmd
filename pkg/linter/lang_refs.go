@@ -67,40 +67,44 @@ func referencedVars(c *parser.Cheat) []Ref {
 		if c.CommandStart == 0 {
 			lineNo = 0
 		}
-		for col := 0; col < len(line); col++ {
-			switch line[col] {
-			case '$':
-				if lang == "shell" && inSingleQuotedShellText(line, col) {
-					continue
-				}
-				ref, end, ok := scanDollarRef(line, col, kind, lineNo)
-				if !ok {
-					continue
-				}
-				key := fmt.Sprintf("%d:%s", ref.Kind, ref.Name)
-				if !seen[key] {
-					seen[key] = true
-					refs = append(refs, ref)
-				}
-				col = end - 1
-			case '<':
-				if heredocBodyLines[i] {
-					continue
-				}
-				ref, end, ok := scanAngleRef(line, col, lineNo)
-				if !ok {
-					continue
-				}
-				key := fmt.Sprintf("%d:%s", ref.Kind, ref.Name)
-				if !seen[key] {
-					seen[key] = true
-					refs = append(refs, ref)
-				}
-				col = end
-			}
-		}
+		scanLineRefs(line, lineNo, kind, lang, heredocBodyLines[i], seen, &refs)
 	}
 	return refs
+}
+
+func scanLineRefs(line string, lineNo int, kind RefKind, lang string, suppressAngle bool, seen map[string]bool, refs *[]Ref) {
+	for col := 0; col < len(line); col++ {
+		switch line[col] {
+		case '$':
+			if lang == "shell" && inSingleQuotedShellText(line, col) {
+				continue
+			}
+			ref, end, ok := scanDollarRef(line, col, kind, lineNo)
+			if !ok {
+				continue
+			}
+			key := fmt.Sprintf("%d:%s", ref.Kind, ref.Name)
+			if !seen[key] {
+				seen[key] = true
+				*refs = append(*refs, ref)
+			}
+			col = end - 1
+		case '<':
+			if suppressAngle {
+				continue
+			}
+			ref, end, ok := scanAngleRef(line, col, lineNo)
+			if !ok {
+				continue
+			}
+			key := fmt.Sprintf("%d:%s", ref.Kind, ref.Name)
+			if !seen[key] {
+				seen[key] = true
+				*refs = append(*refs, ref)
+			}
+			col = end
+		}
+	}
 }
 
 func scanDollarRef(line string, pos int, kind RefKind, lineNo int) (Ref, int, bool) {
@@ -197,37 +201,45 @@ var (
 
 func addSyntaxDeclarations(cmd string, declared map[string]bool) {
 	for _, re := range localDeclRegexes {
-		for _, m := range re.FindAllStringSubmatch(cmd, -1) {
-			if len(m) < 2 {
-				continue
-			}
-			fullMatchLower := strings.ToLower(m[0])
-			if strings.HasPrefix(fullMatchLower, "param") || strings.HasPrefix(fullMatchLower, "function") {
-				for _, pm := range psVarInParamRe.FindAllStringSubmatch(m[1], -1) {
-					declared[pm[1]] = true
-					declared[strings.ToLower(pm[1])] = true
-				}
-				continue
-			}
-
-			if strings.HasPrefix(fullMatchLower, "read") || strings.HasPrefix(fullMatchLower, "local") || strings.HasPrefix(fullMatchLower, "declare") || strings.HasPrefix(fullMatchLower, "typeset") || strings.HasPrefix(fullMatchLower, "export") || strings.HasPrefix(fullMatchLower, "readonly") {
-				for _, field := range strings.Fields(m[1]) {
-					field = strings.TrimLeft(field, "-")
-					if field == "" || strings.Contains(field, "=") {
-						field = strings.SplitN(field, "=", 2)[0]
-					}
-					if isIdentifier(field) {
-						declared[field] = true
-						declared[strings.ToLower(field)] = true
-					}
-				}
-				continue
-			}
-
-			declared[m[1]] = true
-			declared[strings.ToLower(m[1])] = true
-		}
+		findRegexDeclarations(re, cmd, declared)
 	}
+}
+
+func findRegexDeclarations(re *regexp.Regexp, cmd string, declared map[string]bool) {
+	for _, m := range re.FindAllStringSubmatch(cmd, -1) {
+		processDeclMatch(m, declared)
+	}
+}
+
+func processDeclMatch(m []string, declared map[string]bool) {
+	if len(m) < 2 {
+		return
+	}
+	fullMatchLower := strings.ToLower(m[0])
+	if strings.HasPrefix(fullMatchLower, "param") || strings.HasPrefix(fullMatchLower, "function") {
+		for _, pm := range psVarInParamRe.FindAllStringSubmatch(m[1], -1) {
+			declared[pm[1]] = true
+			declared[strings.ToLower(pm[1])] = true
+		}
+		return
+	}
+
+	if strings.HasPrefix(fullMatchLower, "read") || strings.HasPrefix(fullMatchLower, "local") || strings.HasPrefix(fullMatchLower, "declare") || strings.HasPrefix(fullMatchLower, "typeset") || strings.HasPrefix(fullMatchLower, "export") || strings.HasPrefix(fullMatchLower, "readonly") {
+		for _, field := range strings.Fields(m[1]) {
+			field = strings.TrimLeft(field, "-")
+			if field == "" || strings.Contains(field, "=") {
+				field = strings.SplitN(field, "=", 2)[0]
+			}
+			if isIdentifier(field) {
+				declared[field] = true
+				declared[strings.ToLower(field)] = true
+			}
+		}
+		return
+	}
+
+	declared[m[1]] = true
+	declared[strings.ToLower(m[1])] = true
 }
 
 func isLikelyPowerShellCommand(cmd string) bool {

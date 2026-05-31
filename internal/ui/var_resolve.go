@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
@@ -18,8 +18,8 @@ import (
 
 // shellResultMsg is sent when a shell command completes.
 type shellResultMsg struct {
-	options []string
-	err     error
+	options	[]string
+	err	error
 }
 
 // ============================================================================
@@ -66,9 +66,9 @@ func (m *mainModel) startVarResolutionInternal() {
 	}
 
 	m.varState = &varResolveState{
-		cheat:      cheat,
-		vars:       vars,
-		currentIdx: 0,
+		cheat:		cheat,
+		vars:		vars,
+		currentIdx:	0,
 	}
 	m.phase = phaseVarResolve
 
@@ -84,7 +84,6 @@ func (m *mainModel) startVarResolutionInternal() {
 // command to run a shell command to get options.
 func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	if m.varState == nil || m.varState.currentIdx >= len(m.varState.vars) {
-		// All variables resolved - copy to scope and quit.
 		if m.varState != nil {
 			for _, vs := range m.varState.vars {
 				if vs.resolved {
@@ -96,26 +95,11 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 
 	vs := &m.varState.vars[m.varState.currentIdx]
+	scope := m.currentVarScope()
 
-	scope := make(map[string]string)
-	for _, v := range m.varState.vars {
-		if v.resolved {
-			scope[v.def.Name] = v.value
-		}
-	}
-
-	// Select the matching variant based on conditions.
 	selectedDef := selectVariant(vs.variants, scope)
 	if selectedDef == nil {
-		allConditional := true
-		for _, v := range vs.variants {
-			if v.Condition == "" {
-				allConditional = false
-				break
-			}
-		}
-		if allConditional && len(vs.variants) > 0 {
-			// All variants conditional and none matched - skip.
+		if allVariantsConditional(vs.variants) {
 			vs.resolved = true
 			vs.value = ""
 			m.varState.currentIdx++
@@ -125,9 +109,7 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 	vs.def = *selectedDef
 
-	// Auto-continue if the prefill is good enough.
-	autoContinue := config.GetAutoContinue()
-	if autoContinue && vs.prefill != "" && !vs.skipAutoCont {
+	if config.Get().AutoContinue && vs.prefill != "" && !vs.skipAutoCont {
 		vs.value = vs.prefill
 		vs.resolved = true
 		m.varState.currentIdx++
@@ -135,43 +117,74 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 
 	m.varState.customHeader = extractCustomHeader(vs.def.Args)
-	m.varState.selectOpts = parseSelectorOpts(vs.def.Args)
+	m.varState.selectOpts = resolver.ParseSelectorOpts(vs.def.Args)
 
-	// Literal value: substitute scope vars and either show or auto-resolve.
 	if vs.def.Literal != "" {
-		result := executor.SubstituteVars(vs.def.Literal, scope, "dollar")
-		if vs.skipAutoCont {
-			m.varState.isPromptOnly = true
-			m.varState.options = nil
-			if m.varState.picker != nil {
-				m.varState.picker.SetItems(nil)
-			}
-			m.textInput.SetValue(result)
-			m.textInput.CursorEnd()
-			return nil
-		}
-		vs.value = result
-		vs.resolved = true
-		m.varState.currentIdx++
-		return m.prepareCurrentVar()
+		return m.prepareLiteralVar(vs, scope)
 	}
 
-	// Prompt only.
 	if strings.TrimSpace(vs.def.Shell) == "" {
+		return m.preparePromptVar(vs)
+	}
+
+	return m.prepareShellVar(vs, scope)
+}
+
+func (m *mainModel) currentVarScope() map[string]string {
+	scope := make(map[string]string)
+	for _, v := range m.varState.vars {
+		if v.resolved {
+			scope[v.def.Name] = v.value
+		}
+	}
+	return scope
+}
+
+func allVariantsConditional(variants []parser.VarDef) bool {
+	if len(variants) == 0 {
+		return false
+	}
+	for _, v := range variants {
+		if v.Condition == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *mainModel) prepareLiteralVar(vs *varState, scope map[string]string) tea.Cmd {
+	result := executor.SubstituteVars(vs.def.Literal, scope, config.Get().VarSyntax)
+	if vs.skipAutoCont {
 		m.varState.isPromptOnly = true
 		m.varState.options = nil
 		if m.varState.picker != nil {
 			m.varState.picker.SetItems(nil)
 		}
-		if vs.prefill != "" {
-			m.textInput.SetValue(vs.prefill)
-			m.textInput.CursorEnd()
-		}
+		m.textInput.SetValue(result)
+		m.textInput.CursorEnd()
 		return nil
 	}
+	vs.value = result
+	vs.resolved = true
+	m.varState.currentIdx++
+	return m.prepareCurrentVar()
+}
 
-	// Run shell command asynchronously to get options.
-	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, "dollar")
+func (m *mainModel) preparePromptVar(vs *varState) tea.Cmd {
+	m.varState.isPromptOnly = true
+	m.varState.options = nil
+	if m.varState.picker != nil {
+		m.varState.picker.SetItems(nil)
+	}
+	if vs.prefill != "" {
+		m.textInput.SetValue(vs.prefill)
+		m.textInput.CursorEnd()
+	}
+	return nil
+}
+
+func (m *mainModel) prepareShellVar(vs *varState, scope map[string]string) tea.Cmd {
+	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, config.Get().VarSyntax)
 	return func() tea.Msg {
 		output, err := m.executor.RunShell(shellCmd)
 		if err != nil {
@@ -180,43 +193,6 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 		lines := parser.SplitLines(output)
 		return shellResultMsg{lines, nil}
 	}
-}
-
-// parseSelectorOpts parses selector options from args.
-func parseSelectorOpts(selectorArgs string) SelectOptions {
-	opts := SelectOptions{}
-	if selectorArgs == "" {
-		return opts
-	}
-
-	args := parseShellArgs(selectorArgs)
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--delimiter":
-			if i+1 < len(args) {
-				opts.Delimiter = args[i+1]
-				i++
-			}
-		case "--column":
-			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.Column)
-				i++
-			}
-		case "--select-column":
-			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.SelectColumn)
-				i++
-			}
-		case "--map":
-			if i+1 < len(args) {
-				opts.MapCmd = args[i+1]
-				i++
-			}
-		case "--multi":
-			opts.Multi = true
-		}
-	}
-	return opts
 }
 
 // ============================================================================
@@ -298,9 +274,9 @@ func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
 		for i, opt := range msg.options {
 			display := getDisplayColumn(opt, opts.Delimiter, opts.Column)
 			items[i] = FilteredOption{
-				Display:    display,
-				Original:   opt,
-				SearchText: strings.ToLower(display),
+				Display:	display,
+				Original:	opt,
+				SearchText:	strings.ToLower(display),
 			}
 		}
 

@@ -8,7 +8,7 @@ import (
 )
 
 func BashWidget() string {
-	keyWidget := config.GetKeyWidget()
+	keyWidget := config.Get().KeyWidget
 	return fmt.Sprintf(`#!/usr/bin/env bash
 
 _cheatmd_widget() {
@@ -36,7 +36,7 @@ fi
 }
 
 func ZshWidget() string {
-	keyWidget := config.GetKeyWidget()
+	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to zsh format (e.g., \C-g -> ^g)
 	zshKey := convertToZshKey(keyWidget)
 	return fmt.Sprintf(`#!/usr/bin/env zsh
@@ -65,7 +65,7 @@ bindkey '%s' _cheatmd_widget
 }
 
 func FishWidget() string {
-	keyWidget := config.GetKeyWidget()
+	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to fish format (e.g., \C-g -> \cg)
 	fishKey := convertToFishKey(keyWidget)
 	return fmt.Sprintf(`function _cheatmd_widget

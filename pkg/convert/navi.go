@@ -188,13 +188,21 @@ func BuildNaviIndex(files []*NaviFile) *NaviIndex {
 		ByTag: make(map[string][]*NaviSection),
 	}
 	for _, f := range files {
-		for _, s := range f.Sections {
-			for _, tag := range s.Tags {
-				idx.ByTag[tag] = append(idx.ByTag[tag], s)
-			}
-		}
+		indexNaviFile(idx, f)
 	}
 	return idx
+}
+
+func indexNaviFile(idx *NaviIndex, f *NaviFile) {
+	for _, s := range f.Sections {
+		indexNaviSection(idx, s)
+	}
+}
+
+func indexNaviSection(idx *NaviIndex, s *NaviSection) {
+	for _, tag := range s.Tags {
+		idx.ByTag[tag] = append(idx.ByTag[tag], s)
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -240,14 +248,18 @@ func SerializeNaviFile(file *NaviFile, idx *NaviIndex) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "# Converted %s Cheatsheet\n\n", capitalize(filenameBase(file.Filename)))
 	for _, section := range file.Sections {
-		for _, c := range section.Cheats {
-			writeNaviCheat(&sb, c, section, idx)
-		}
+		writeNaviSectionCheats(&sb, section, idx)
 		if len(section.VarOrder) > 0 {
 			writeSectionModule(&sb, section)
 		}
 	}
 	return sb.String()
+}
+
+func writeNaviSectionCheats(sb *strings.Builder, section *NaviSection, idx *NaviIndex) {
+	for _, c := range section.Cheats {
+		writeNaviCheat(sb, c, section, idx)
+	}
 }
 
 // writeNaviCheat emits one cheat block. For each placeholder it resolves:
@@ -332,13 +344,20 @@ func resolvePlaceholders(
 // itself.
 func resolveExtends(c NaviCheat, own *NaviSection, ph string, idx *NaviIndex) string {
 	for _, ext := range c.Imports {
-		for _, s := range idx.ByTag[ext] {
-			if s == own {
-				continue
-			}
-			if _, ok := s.Vars[ph]; ok {
-				return s.Module
-			}
+		if mod := resolveExtendsFromTag(ext, own, ph, idx); mod != "" {
+			return mod
+		}
+	}
+	return ""
+}
+
+func resolveExtendsFromTag(tag string, own *NaviSection, ph string, idx *NaviIndex) string {
+	for _, s := range idx.ByTag[tag] {
+		if s == own {
+			continue
+		}
+		if _, ok := s.Vars[ph]; ok {
+			return s.Module
 		}
 	}
 	return ""

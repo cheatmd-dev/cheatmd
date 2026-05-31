@@ -128,9 +128,7 @@ func ConvertFile(format, inputPath, outputPath string) error {
 	return nil
 }
 
-// ConvertDirectory walks the input directory and converts all matching files.
 func ConvertDirectory(format, inputDir, outputDir string) error {
-	// Create output dir if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
 	}
@@ -141,74 +139,76 @@ func ConvertDirectory(format, inputDir, outputDir string) error {
 		}
 
 		if d.IsDir() {
-			// Skip hidden dirs
 			if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// Check if the file matches our format's expected extension/criteria
-		shouldConvert := false
-		switch format {
-		case "navi":
-			shouldConvert = strings.HasSuffix(strings.ToLower(d.Name()), ".cheat")
-		case "tldr":
-			shouldConvert = strings.HasSuffix(strings.ToLower(d.Name()), ".md")
-		case "cheat":
-			// cheat/cheat community files typically have no extension and aren't hidden
-			shouldConvert = !strings.Contains(d.Name(), ".") && !strings.HasPrefix(d.Name(), "_")
-		}
-
-		if !shouldConvert {
+		if !shouldConvertFile(format, d.Name()) {
 			return nil
 		}
 
-		// Calculate relative path to maintain structure
-		rel, err := filepath.Rel(inputDir, path)
-		if err != nil {
-			return err
-		}
-
-		relBase := strings.TrimSuffix(rel, filepath.Ext(rel))
-		targetFile := filepath.Join(outputDir, relBase+".md")
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s: %w", path, err)
-		}
-
-		var converted string
-		switch format {
-		case "navi":
-			converted, err = ConvertNavi(string(data), path)
-		case "tldr":
-			converted, err = ConvertTldr(string(data), path)
-		case "cheat":
-			converted, err = ConvertCheat(string(data), path)
-		}
-
-		if err != nil {
-			return fmt.Errorf("failed to convert file %s: %w", path, err)
-		}
-
-		// Ensure parent directory exists for the output file
-		parentDir := filepath.Dir(targetFile)
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", parentDir, err)
-		}
-
-		if err := os.WriteFile(targetFile, []byte(converted), 0644); err != nil {
-			return fmt.Errorf("failed to write converted file %s: %w", targetFile, err)
-		}
-
-		fmt.Printf("✓ Converted %s (%s) -> %s\n", rel, format, targetFile)
-		return nil
+		return convertAndWriteFile(format, inputDir, outputDir, path)
 	})
 
 	if err != nil {
 		return fmt.Errorf("error walking directory: %w", err)
 	}
 
+	return nil
+}
+
+func shouldConvertFile(format, filename string) bool {
+	switch format {
+	case "navi":
+		return strings.HasSuffix(strings.ToLower(filename), ".cheat")
+	case "tldr":
+		return strings.HasSuffix(strings.ToLower(filename), ".md")
+	case "cheat":
+		return !strings.Contains(filename, ".") && !strings.HasPrefix(filename, "_")
+	default:
+		return false
+	}
+}
+
+func convertAndWriteFile(format, inputDir, outputDir, path string) error {
+	rel, err := filepath.Rel(inputDir, path)
+	if err != nil {
+		return err
+	}
+
+	relBase := strings.TrimSuffix(rel, filepath.Ext(rel))
+	targetFile := filepath.Join(outputDir, relBase+".md")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+
+	var converted string
+	switch format {
+	case "navi":
+		converted, err = ConvertNavi(string(data), path)
+	case "tldr":
+		converted, err = ConvertTldr(string(data), path)
+	case "cheat":
+		converted, err = ConvertCheat(string(data), path)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to convert file %s: %w", path, err)
+	}
+
+	parentDir := filepath.Dir(targetFile)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", parentDir, err)
+	}
+
+	if err := os.WriteFile(targetFile, []byte(converted), 0644); err != nil {
+		return fmt.Errorf("failed to write converted file %s: %w", targetFile, err)
+	}
+
+	fmt.Printf("✓ Converted %s (%s) -> %s\n", rel, format, targetFile)
 	return nil
 }

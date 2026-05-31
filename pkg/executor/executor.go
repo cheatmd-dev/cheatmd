@@ -85,17 +85,17 @@ func commandExists(name string) bool {
 
 // Executor handles shell command execution and variable substitution
 type Executor struct {
-	index     *parser.CheatIndex
-	shell     string
-	clipboard Clipboard
+	index		*parser.CheatIndex
+	shell		string
+	clipboard	Clipboard
 }
 
 // NewExecutor creates a new executor with the given cheat index
 func NewExecutor(index *parser.CheatIndex) *Executor {
 	return &Executor{
-		index:     index,
-		shell:     config.GetShell(),
-		clipboard: &systemClipboard{},
+		index:		index,
+		shell:		config.Get().Shell,
+		clipboard:	&systemClipboard{},
 	}
 }
 
@@ -161,7 +161,7 @@ func (e *Executor) Execute(command string) error {
 
 // BuildFinalCommand substitutes all variables in a cheat's command
 func (e *Executor) BuildFinalCommand(cheat *parser.Cheat) string {
-	result := SubstituteVars(cheat.Command, cheat.Scope, config.GetVarSyntax())
+	result := SubstituteVars(cheat.Command, cheat.Scope, config.Get().VarSyntax)
 
 	// Handle escaped dollar signs
 	result = strings.ReplaceAll(result, "\\$", "$")
@@ -183,7 +183,7 @@ func SubstituteVars(s string, scope map[string]string, syntax string) string {
 		case "both":
 			s = strings.ReplaceAll(s, "$"+name, val)
 			s = strings.ReplaceAll(s, "<"+name+">", val)
-		default: // "dollar"
+		default:	// "dollar"
 			s = strings.ReplaceAll(s, "$"+name, val)
 		}
 	}
@@ -198,14 +198,14 @@ func SubstituteVars(s string, scope map[string]string, syntax string) string {
 type OutputMode string
 
 const (
-	OutputPrint OutputMode = "print"
-	OutputCopy  OutputMode = "copy"
-	OutputExec  OutputMode = "exec"
+	OutputPrint	OutputMode	= "print"
+	OutputCopy	OutputMode	= "copy"
+	OutputExec	OutputMode	= "exec"
 )
 
 // Output handles command output based on the configured mode
 func (e *Executor) Output(command string) error {
-	mode := OutputMode(config.GetOutput())
+	mode := OutputMode(config.Get().Output)
 	return e.OutputWithMode(command, mode)
 }
 
@@ -216,7 +216,7 @@ func (e *Executor) OutputWithMode(command string, mode OutputMode) error {
 		return e.Execute(command)
 	case OutputCopy:
 		return e.clipboard.Copy(command)
-	default: // print
+	default:	// print
 		return nil
 	}
 }

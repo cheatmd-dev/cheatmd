@@ -225,3 +225,13 @@ func (m *mainModel) View() string {
 		return m.renderCheatSelect()
 	}
 }
+
+// isOverlayNavKey reports whether key is a navigation/accept/cancel key
+// that an overlay handles directly (rather than passing to the text input).
+func isOverlayNavKey(key string) bool {
+	switch key {
+	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
+		return true
+	}
+	return false
+}

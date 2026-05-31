@@ -11,9 +11,9 @@ import (
 // CollectDependencies gathers all variable definitions and their topological ordering.
 func CollectDependencies(cheat *parser.Cheat, index *parser.CheatIndex) ([]string, map[string][]parser.VarDef) {
 	varDefs := CollectVarDefinitions(cheat, index)
-	usedVars := FindAllVars(cheat.Command, config.GetVarSyntax())
+	usedVars := FindAllVars(cheat.Command, config.Get().VarSyntax)
 
-	if config.GetAllowUndeclaredVars() {
+	if config.Get().AllowUndeclaredVars {
 		for _, name := range usedVars {
 			if _, ok := varDefs[name]; !ok {
 				varDefs[name] = []parser.VarDef{{Name: name}}
@@ -38,11 +38,13 @@ func CollectVarDefinitions(cheat *parser.Cheat, index *parser.CheatIndex) map[st
 				continue
 			}
 			seen[importName] = true
-			if module, ok := index.Modules[importName]; ok {
-				collectFromImports(module.Imports, seen)
-				for _, v := range module.Vars {
-					varDefs[v.Name] = append(varDefs[v.Name], v)
-				}
+			module, ok := index.Modules[importName]
+			if !ok {
+				continue
+			}
+			collectFromImports(module.Imports, seen)
+			for _, v := range module.Vars {
+				varDefs[v.Name] = append(varDefs[v.Name], v)
 			}
 		}
 	}
@@ -77,15 +79,20 @@ func FindAllDependencies(usedVars []string, varDefs map[string][]parser.VarDef) 
 		}
 		allNeeded[varName] = true
 
-		for _, def := range varDefs[varName] {
-			for _, dep := range varDefDependencies(def) {
-				if !allNeeded[dep] {
-					queue = append(queue, dep)
-				}
+		queue = enqueueDependencies(queue, varDefs[varName], allNeeded)
+	}
+	return allNeeded
+}
+
+func enqueueDependencies(queue []string, defs []parser.VarDef, allNeeded map[string]bool) []string {
+	for _, def := range defs {
+		for _, dep := range varDefDependencies(def) {
+			if !allNeeded[dep] {
+				queue = append(queue, dep)
 			}
 		}
 	}
-	return allNeeded
+	return queue
 }
 
 // TopologicalSort orders variables by their dependencies.
@@ -100,11 +107,7 @@ func TopologicalSort(usedVars []string, varDefs map[string][]parser.VarDef, allN
 			return
 		}
 		visiting[varName] = true
-		for _, def := range varDefs[varName] {
-			for _, dep := range varDefDependencies(def) {
-				addWithDeps(dep)
-			}
-		}
+		visitDependencies(varDefs[varName], addWithDeps)
 		visiting[varName] = false
 		added[varName] = true
 		orderedVars = append(orderedVars, varName)
@@ -114,6 +117,14 @@ func TopologicalSort(usedVars []string, varDefs map[string][]parser.VarDef, allN
 		addWithDeps(v)
 	}
 	return orderedVars
+}
+
+func visitDependencies(defs []parser.VarDef, addWithDeps func(string)) {
+	for _, def := range defs {
+		for _, dep := range varDefDependencies(def) {
+			addWithDeps(dep)
+		}
+	}
 }
 
 // EvaluateCondition evaluates a condition expression against the scope.
@@ -179,45 +190,44 @@ func FindAllVars(cmd string, syntax string) []string {
 	for i := 0; i < len(cmd); i++ {
 		switch cmd[i] {
 		case '$':
-			if !allowDollar {
-				continue
-			}
-			if i+1 >= len(cmd) {
-				continue
-			}
-			if i > 0 && cmd[i-1] == '\\' {
-				continue
-			}
-			j := i + 1
-			for j < len(cmd) && parser.IsVarChar(cmd[j], j == i+1) {
-				j++
-			}
-			if j > i+1 {
-				add(cmd[i+1 : j])
-			}
-			i = j - 1
+			i = scanDollarVar(cmd, i, allowDollar, add)
 		case '<':
-			if !allowAngle {
-				continue
-			}
-			j := i + 1
-			if j >= len(cmd) {
-				continue
-			}
-			if !parser.IsVarChar(cmd[j], true) {
-				continue
-			}
-			j++
-			for j < len(cmd) && parser.IsVarChar(cmd[j], false) {
-				j++
-			}
-			if j >= len(cmd) || cmd[j] != '>' {
-				continue
-			}
-			add(cmd[i+1 : j])
-			i = j
+			i = scanAngleVar(cmd, i, allowAngle, add)
 		}
 	}
 
 	return vars
+}
+
+func scanDollarVar(cmd string, i int, allowDollar bool, add func(string)) int {
+	if !allowDollar || i+1 >= len(cmd) || (i > 0 && cmd[i-1] == '\\') {
+		return i
+	}
+	j := i + 1
+	for j < len(cmd) && parser.IsVarChar(cmd[j], j == i+1) {
+		j++
+	}
+	if j > i+1 {
+		add(cmd[i+1 : j])
+	}
+	return j - 1
+}
+
+func scanAngleVar(cmd string, i int, allowAngle bool, add func(string)) int {
+	if !allowAngle {
+		return i
+	}
+	j := i + 1
+	if j >= len(cmd) || !parser.IsVarChar(cmd[j], true) {
+		return i
+	}
+	j++
+	for j < len(cmd) && parser.IsVarChar(cmd[j], false) {
+		j++
+	}
+	if j >= len(cmd) || cmd[j] != '>' {
+		return i
+	}
+	add(cmd[i+1 : j])
+	return j
 }

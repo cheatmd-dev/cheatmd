@@ -111,18 +111,16 @@ func collectHistoryOptions() []substituteOption {
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
-	type entry struct {
-		name, value string
-	}
-	var entries []entry
+	var entries []assignment
 	for scanner.Scan() {
 		line := strings.TrimSpace(stripHistoryPrefix(scanner.Text()))
 		if line == "" {
 			continue
 		}
-		for _, a := range extractAssignments(line) {
-			entries = append(entries, entry{a.name, a.value})
-		}
+		entries = append(entries, extractAssignments(line)...)
+	}
+	if err := scanner.Err(); err != nil {
+		// Log or handle, but return whatever we parsed so far for resilience
 	}
 
 	// Newest first, dedupe by "name=value".
@@ -167,10 +165,7 @@ func extractAssignments(line string) []assignment {
 		case "export", "set", "typeset", "local", "readonly":
 			continue
 		case "declare":
-			// skip any flag-like tokens that follow (e.g. -x, -gx)
-			for i+1 < len(tokens) && strings.HasPrefix(tokens[i+1], "-") {
-				i++
-			}
+			i = skipFlags(tokens, i)
 			continue
 		}
 		if a, ok := parseAssignment(tok); ok {
@@ -178,6 +173,13 @@ func extractAssignments(line string) []assignment {
 		}
 	}
 	return out
+}
+
+func skipFlags(tokens []string, i int) int {
+	for i+1 < len(tokens) && strings.HasPrefix(tokens[i+1], "-") {
+		i++
+	}
+	return i
 }
 
 // parseAssignment splits "NAME=value" if NAME is a valid shell var name.

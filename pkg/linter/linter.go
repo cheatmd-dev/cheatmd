@@ -130,18 +130,45 @@ func Lint(path string) ([]Finding, error) {
 func lintIndex(index *parser.CheatIndex, isDir bool) []Finding {
 	var findings []Finding
 
-	// Collect duplicate exports
-	for _, dup := range index.Duplicates {
-		findings = append(findings, Finding{
-			File:     dup.File2,
-			Line:     1,
-			Column:   1,
-			Severity: SeverityError,
-			Message:  fmt.Sprintf("duplicate export %q (also defined in %s)", dup.Name, filepath.Base(dup.File1)),
-		})
-	}
+	findings = append(findings, lintDuplicateExports(index)...)
+	findings = append(findings, lintDuplicateHeaders(index)...)
+	findings = append(findings, lintChainSteps(index)...)
+	findings = append(findings, lintImports(index)...)
+	findings = append(findings, lintUndeclaredVars(index)...)
 
-	// Check duplicate cheat headers globally
+	return findings
+}
+
+func errorf(file string, line, col int, format string, args ...any) Finding {
+	return Finding{
+		File:     file,
+		Line:     line,
+		Column:   col,
+		Severity: SeverityError,
+		Message:  fmt.Sprintf(format, args...),
+	}
+}
+
+func warningf(file string, line, col int, format string, args ...any) Finding {
+	return Finding{
+		File:     file,
+		Line:     line,
+		Column:   col,
+		Severity: SeverityWarning,
+		Message:  fmt.Sprintf(format, args...),
+	}
+}
+
+func lintDuplicateExports(index *parser.CheatIndex) []Finding {
+	var findings []Finding
+	for _, dup := range index.Duplicates {
+		findings = append(findings, errorf(dup.File2, 1, 1, "duplicate export %q (also defined in %s)", dup.Name, filepath.Base(dup.File1)))
+	}
+	return findings
+}
+
+func lintDuplicateHeaders(index *parser.CheatIndex) []Finding {
+	var findings []Finding
 	type cheatLoc struct {
 		file string
 		line int
@@ -152,113 +179,119 @@ func lintIndex(index *parser.CheatIndex, isDir bool) []Finding {
 		if c.Header == "" {
 			continue
 		}
-		if firstLoc, exists := headerLocs[c.Header]; exists {
-			if !warnedHeaders[c.Header] {
-				msg := fmt.Sprintf("duplicate cheat name %q (also `# %s` at line %d)", c.Header, c.Header, firstLoc.line)
-				if firstLoc.file != c.File {
-					msg = fmt.Sprintf("duplicate cheat name %q (also `# %s` at %s:%d)", c.Header, c.Header, firstLoc.file, firstLoc.line)
-				}
-				findings = append(findings, Finding{
-					File:     c.File,
-					Line:     c.HeaderLine,
-					Column:   1,
-					Severity: SeverityWarning,
-					Message:  msg,
-				})
-				warnedHeaders[c.Header] = true
-			}
-		} else {
+
+		firstLoc, exists := headerLocs[c.Header]
+		if !exists {
 			headerLocs[c.Header] = cheatLoc{file: c.File, line: c.HeaderLine}
+			continue
 		}
+
+		if warnedHeaders[c.Header] {
+			continue
+		}
+
+		msg := fmt.Sprintf("duplicate cheat name %q (also `# %s` at line %d)", c.Header, c.Header, firstLoc.line)
+		if firstLoc.file != c.File {
+			msg = fmt.Sprintf("duplicate cheat name %q (also `# %s` at %s:%d)", c.Header, c.Header, firstLoc.file, firstLoc.line)
+		}
+		findings = append(findings, warningf(c.File, c.HeaderLine, 1, "%s", msg))
+		warnedHeaders[c.Header] = true
 	}
+	return findings
+}
+
+func lintChainSteps(index *parser.CheatIndex) []Finding {
+	var findings []Finding
 	seenChainSteps := make(map[string]*parser.Cheat)
 	chainSteps := make(map[string]map[int]*parser.Cheat)
 
 	for _, c := range index.Cheats {
-		if c.ChainName != "" {
-			if chainSteps[c.ChainName] == nil {
-				chainSteps[c.ChainName] = make(map[int]*parser.Cheat)
-			}
-			chainSteps[c.ChainName][c.ChainStep] = c
-			key := fmt.Sprintf("%s:%d", c.ChainName, c.ChainStep)
-			if existing := seenChainSteps[key]; existing != nil {
-				line, col := findDSLRef(c.File, "chain", c.ChainName)
-				findings = append(findings, Finding{
-					File:     c.File,
-					Line:     line,
-					Column:   col,
-					Severity: SeverityError,
-					Message:  fmt.Sprintf("duplicate chain step %q %d (also in %s)", c.ChainName, c.ChainStep, existing.File),
-				})
-			} else {
-				seenChainSteps[key] = c
-			}
-		}
-
-		// Missing imports.
-		for _, imp := range c.Imports {
-			if _, ok := index.Modules[imp]; !ok {
-				line, col := findDSLRef(c.File, "import", imp)
-				findings = append(findings, Finding{
-					File:     c.File,
-					Line:     line,
-					Column:   col,
-					Severity: SeverityError,
-					Message:  fmt.Sprintf("import %q does not resolve to any exported module", imp),
-				})
-			}
-		}
-
-		// Undeclared $var / <var> references in the command. Plain code
-		// fences without a cheat block are allowed to contain ordinary shell
-		// variables; only lint cheats that opted into metadata.
-		if c.Export != "" || !c.HasCheatBlock {
+		if c.ChainName == "" {
 			continue
 		}
-		if len(c.Command) > 0 {
-			declared := declaredVarNames(c, index)
-			addSyntaxDeclarations(c.Command, declared)
-			for _, ref := range referencedVars(c) {
-				if isMissing(ref, declared, c.Command) {
-					findings = append(findings, Finding{
-						File:     c.File,
-						Line:     ref.Line,
-						Column:   ref.Column,
-						Severity: SeverityWarning,
-						Message:  fmt.Sprintf("undeclared variable %q referenced in command", ref.Name),
-					})
-				}
-			}
+		if chainSteps[c.ChainName] == nil {
+			chainSteps[c.ChainName] = make(map[int]*parser.Cheat)
+		}
+		chainSteps[c.ChainName][c.ChainStep] = c
+		key := fmt.Sprintf("%s:%d", c.ChainName, c.ChainStep)
+		if existing := seenChainSteps[key]; existing != nil {
+			line, col := findDSLRef(c.File, "chain", c.ChainName)
+			findings = append(findings, errorf(c.File, line, col, "duplicate chain step %q %d (also in %s)", c.ChainName, c.ChainStep, existing.File))
+		} else {
+			seenChainSteps[key] = c
 		}
 	}
+
 	for name, steps := range chainSteps {
-		maxStep := 0
-		var first *parser.Cheat
-		for step, cheat := range steps {
-			if first == nil || step < first.ChainStep {
-				first = cheat
-			}
-			if step > maxStep {
-				maxStep = step
-			}
+		findings = append(findings, checkMissingChainSteps(name, steps)...)
+	}
+	return findings
+}
+
+func checkMissingChainSteps(name string, steps map[int]*parser.Cheat) []Finding {
+	var findings []Finding
+	maxStep := 0
+	var first *parser.Cheat
+	for step, cheat := range steps {
+		if first == nil || step < first.ChainStep {
+			first = cheat
 		}
-		for step := 1; step <= maxStep; step++ {
-			if steps[step] != nil {
-				continue
-			}
-			line, col := 0, 0
-			file := ""
-			if first != nil {
-				file = first.File
-				line, col = findDSLRef(first.File, "chain", name)
-			}
-			findings = append(findings, Finding{
-				File:     file,
-				Line:     line,
-				Column:   col,
-				Severity: SeverityWarning,
-				Message:  fmt.Sprintf("chain %q is missing step %d", name, step),
-			})
+		if step > maxStep {
+			maxStep = step
+		}
+	}
+	for step := 1; step <= maxStep; step++ {
+		if steps[step] != nil {
+			continue
+		}
+		line, col := 0, 0
+		file := ""
+		if first != nil {
+			file = first.File
+			line, col = findDSLRef(first.File, "chain", name)
+		}
+		findings = append(findings, warningf(file, line, col, "chain %q is missing step %d", name, step))
+	}
+	return findings
+}
+
+func lintImports(index *parser.CheatIndex) []Finding {
+	var findings []Finding
+	for _, c := range index.Cheats {
+		findings = append(findings, lintCheatImports(c, index)...)
+	}
+	return findings
+}
+
+func lintCheatImports(c *parser.Cheat, index *parser.CheatIndex) []Finding {
+	var findings []Finding
+	for _, imp := range c.Imports {
+		if _, ok := index.Modules[imp]; !ok {
+			line, col := findDSLRef(c.File, "import", imp)
+			findings = append(findings, errorf(c.File, line, col, "import %q does not resolve to any exported module", imp))
+		}
+	}
+	return findings
+}
+
+func lintUndeclaredVars(index *parser.CheatIndex) []Finding {
+	var findings []Finding
+	for _, c := range index.Cheats {
+		if c.Export != "" || !c.HasCheatBlock || len(c.Command) == 0 {
+			continue
+		}
+		findings = append(findings, lintCheatUndeclaredVars(c, index)...)
+	}
+	return findings
+}
+
+func lintCheatUndeclaredVars(c *parser.Cheat, index *parser.CheatIndex) []Finding {
+	var findings []Finding
+	declared := declaredVarNames(c, index)
+	addSyntaxDeclarations(c.Command, declared)
+	for _, ref := range referencedVars(c) {
+		if isMissing(ref, declared, c.Command) {
+			findings = append(findings, warningf(c.File, ref.Line, ref.Column, "undeclared variable %q referenced in command", ref.Name))
 		}
 	}
 	return findings
