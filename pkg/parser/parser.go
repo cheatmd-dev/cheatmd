@@ -99,6 +99,7 @@ func parseFilesParallel(files []string) []parseResult {
 			localCheats := make([]*Cheat, 0, estimatedCheats/numWorkers)
 			localModules := make(map[string]*Module)
 			var localDuplicates []DuplicateExport
+			var localErrors []ParseError
 
 			for _, path := range fileChunk {
 				if info, err := os.Stat(path); err == nil && info.Size() <= 5*1024*1024 {
@@ -107,10 +108,11 @@ func parseFilesParallel(files []string) []parseResult {
 						localParser.parseLines(path, data)
 						localCheats = append(localCheats, localParser.index.Cheats...)
 						localModules = mergeModules(localModules, &localDuplicates, localParser.index.Modules)
+						localErrors = append(localErrors, localParser.index.Errors...)
 					}
 				}
 			}
-			resultChan <- parseResult{cheats: localCheats, modules: localModules, duplicates: localDuplicates, errors: localParser.index.Errors}
+			resultChan <- parseResult{cheats: localCheats, modules: localModules, duplicates: localDuplicates, errors: localErrors}
 		}(chunk)
 	}
 
