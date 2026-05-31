@@ -12,10 +12,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/cheatmd-dev/cheatmd/internal/installer"
+	"github.com/cheatmd-dev/cheatmd/internal/packmanifest"
 	"github.com/cheatmd-dev/cheatmd/internal/ui"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
-	"github.com/cheatmd-dev/cheatmd/pkg/installer"
-	"github.com/cheatmd-dev/cheatmd/pkg/packmanifest"
 	"github.com/cheatmd-dev/cheatmd/pkg/registry"
 )
 

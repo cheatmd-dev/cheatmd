@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cheatmd-dev/cheatmd/internal/packmanifest"
 	"github.com/cheatmd-dev/cheatmd/internal/ui"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
-	"github.com/cheatmd-dev/cheatmd/pkg/packmanifest"
 	"github.com/cheatmd-dev/cheatmd/pkg/registry"
 )
 
@@ -91,22 +91,15 @@ func runPacksList(cmd *cobra.Command, args []string) error {
 }
 
 func runPacksInstall(cmd *cobra.Command, args []string) error {
-	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
-	if err != nil {
-		return fmt.Errorf("fetch registry: %w", err)
-	}
-
-	chosen, err := choosePacks(reg, args)
+	chosen, err := fetchAndChoosePacks(cmd, args)
 	if err != nil {
 		return err
 	}
-
-	out := cmd.ErrOrStderr()
 	if len(chosen) == 0 {
-		fmt.Fprintln(out, "No packs selected.")
 		return nil
 	}
 
+	out := cmd.ErrOrStderr()
 	dest, installed := installPacks(cmd.Context(), out, chosen)
 	fmt.Fprintf(out, "Installed %d pack(s) into %s\n", installed, dest)
 	if installed < len(chosen) {
@@ -116,27 +109,15 @@ func runPacksInstall(cmd *cobra.Command, args []string) error {
 }
 
 func runPacksUpdate(cmd *cobra.Command, args []string) error {
-	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
-	if err != nil {
-		return fmt.Errorf("fetch registry: %w", err)
-	}
-
-	chosen, err := choosePacks(reg, args)
+	chosen, err := fetchAndChoosePacks(cmd, args)
 	if err != nil {
 		return err
 	}
-
-	out := cmd.ErrOrStderr()
 	if len(chosen) == 0 {
-		fmt.Fprintln(out, "No packs selected.")
 		return nil
 	}
 
-	// For update, we want to ensure we only update installed packs if no args were given?
-	// Actually, choosePacks shows the picker. We might be picking uninstalled packs too.
-	// But it's fine, `update` uses the exact same `installPacks` logic, the only difference
-	// is the wording and that `installPacks` + `installer.Install` now cleanly handles overwriting.
-
+	out := cmd.ErrOrStderr()
 	dest, installed := installPacks(cmd.Context(), out, chosen)
 	fmt.Fprintf(out, "Updated %d pack(s) in %s\n", installed, dest)
 	if installed < len(chosen) {
@@ -177,6 +158,25 @@ func runPacksRemove(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+// fetchAndChoosePacks handles the common setup of fetching the registry
+// and showing the picker (or parsing args) for both install and update.
+func fetchAndChoosePacks(cmd *cobra.Command, args []string) ([]registry.Pack, error) {
+	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
+	if err != nil {
+		return nil, fmt.Errorf("fetch registry: %w", err)
+	}
+
+	chosen, err := choosePacks(reg, args)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(chosen) == 0 {
+		fmt.Fprintln(cmd.ErrOrStderr(), "No packs selected.")
+	}
+	return chosen, nil
 }
 
 // choosePacks resolves which packs to install: the named packs when names are
