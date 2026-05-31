@@ -1,6 +1,9 @@
 package ui
 
-import "strings"
+import (
+	"strings"
+	"github.com/mattn/go-runewidth"
+)
 
 // clamp restricts v to the range [minV, maxV].
 func clamp(v, minV, maxV int) int {
@@ -46,20 +49,23 @@ func scrollWindow(cursor, total, height int, offset *int) (start, end int) {
 
 // truncateString truncates a string to maxLen with ellipsis.
 func truncateString(s string, maxLen int) string {
-	if maxLen <= 3 || len(s) <= maxLen {
+	if maxLen <= 0 {
+		return ""
+	}
+	if runewidth.StringWidth(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return runewidth.Truncate(s, maxLen, "…")
 }
 
 // truncateLines truncates text to maxLines with optional maxLen per content.
 func truncateLines(text string, maxLines int, maxLen int) string {
 	lines := strings.Split(text, "\n")
 	if len(lines) > maxLines {
-		text = strings.Join(lines[:maxLines], "\n") + "..."
+		text = strings.Join(lines[:maxLines], "\n") + "…"
 	}
-	if maxLen > 0 && len(text) > maxLen {
-		text = text[:maxLen-3] + "..."
+	if maxLen > 0 && runewidth.StringWidth(text) > maxLen {
+		text = runewidth.Truncate(text, maxLen, "…")
 	}
 	return text
 }
