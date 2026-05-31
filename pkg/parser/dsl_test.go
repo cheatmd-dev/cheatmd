@@ -32,3 +32,22 @@ fi
 		}
 	}
 }
+
+func TestDSLLineNumberContinuations(t *testing.T) {
+	cheat := &Cheat{}
+	dslBlock := `
+var X = \
+	echo x
+
+invalid_keyword
+`
+	errs := parseCheatDSL(cheat, dslBlock, "test.md", 10)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+
+	// invalid_keyword is on line 5 of the block, starting at 10 -> line 14
+	if errs[0].Line != 14 {
+		t.Errorf("expected error on line 14, got line %d", errs[0].Line)
+	}
+}
