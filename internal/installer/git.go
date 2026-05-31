@@ -28,9 +28,14 @@ func installViaGit(ctx context.Context, pack registry.Pack, target string) error
 	}
 	defer os.RemoveAll(tmp)
 
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", pack.Repo, tmp)
+	if strings.HasPrefix(pack.Repo, "-") || !(strings.HasPrefix(pack.Repo, "https://") || strings.HasPrefix(pack.Repo, "git@") || strings.HasPrefix(pack.Repo, "ssh://")) {
+		return fmt.Errorf("invalid or insecure git repository url: %s", pack.Repo)
+	}
+
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never", "--", pack.Repo, tmp)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git clone %s: %w", pack.Repo, err)
 	}
@@ -38,6 +43,9 @@ func installViaGit(ctx context.Context, pack registry.Pack, target string) error
 	root := tmp
 	if pack.Subdir != "" {
 		root = filepath.Join(tmp, filepath.Clean(pack.Subdir))
+		if !withinDir(tmp, root) {
+			return fmt.Errorf("invalid subdir %q escapes pack repository", pack.Subdir)
+		}
 	}
 
 	n, err := copyMarkdown(root, target)
