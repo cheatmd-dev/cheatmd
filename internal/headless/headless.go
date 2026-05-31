@@ -78,11 +78,12 @@ func (s *RunnerSession) findTargetCheat(initialQuery, matchCmd string) error {
 	}
 
 	query := s.resolveInitialQuery(initialQuery, matchCmd)
-	if s.tryMatchByQuery(cheats, query) {
+	err := s.tryMatchByQuery(cheats, query)
+	if err == nil {
 		return nil
 	}
 
-	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
+	return err
 }
 
 func (s *RunnerSession) resolveInitialQuery(initialQuery, matchCmd string) string {
@@ -105,21 +106,24 @@ func (s *RunnerSession) tryMatchByCommand(cheats []*parser.Cheat, matchCmd strin
 	return true
 }
 
-func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) bool {
+func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) error {
 	if query == "" {
-		return false
+		return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 	}
 	words := strings.Fields(strings.ToLower(query))
 	matchedCheats := s.filterCheatsByWords(cheats, words)
 	s.Cheat = s.findExactHeaderMatch(matchedCheats, query)
 	if s.Cheat != nil {
-		return true
+		return nil
 	}
-	if len(matchedCheats) > 0 {
+	if len(matchedCheats) == 1 {
 		s.Cheat = matchedCheats[0]
-		return true
+		return nil
 	}
-	return false
+	if len(matchedCheats) > 1 {
+		return fmt.Errorf("headless query %q is ambiguous, matches %d cheats", query, len(matchedCheats))
+	}
+	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 }
 
 func (s *RunnerSession) filterCheatsByWords(cheats []*parser.Cheat, words []string) []*parser.Cheat {

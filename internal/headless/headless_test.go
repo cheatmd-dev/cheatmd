@@ -249,3 +249,30 @@ func TestRunHeadlessConditionalDependencies(t *testing.T) {
 		t.Errorf("unexpected command: %q", completed.Params.Command)
 	}
 }
+
+func TestRunHeadlessAmbiguous(t *testing.T) {
+	cheat1 := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Deploy to Staging",
+		Command: "echo staging",
+	}
+	cheat2 := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Deploy to Prod",
+		Command: "echo prod",
+	}
+
+	index := parser.NewCheatIndex()
+	index.Cheats = []*parser.Cheat{cheat1, cheat2}
+
+	exec := &mockHeadlessExecutor{}
+
+	err := Run(index, exec, "Deploy", "")
+	if err == nil {
+		t.Fatalf("expected error for ambiguous query, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguous error, got: %v", err)
+	}
+}
