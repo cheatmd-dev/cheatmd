@@ -20,7 +20,23 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 	case "alt+enter", "ctrl+j":
 		return m.acceptVarValue(true)
 	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
-		if !m.varState.isPromptOnly && m.varState.picker != nil {
+		if m.varState.pathPicker != nil {
+			m.varState.pathPicker.HandleKey(msg)
+			if opt, ok := m.varState.pathPicker.Selected(); ok {
+				runes := []rune(m.textInput.Value())
+				newRunes := make([]rune, 0)
+				newRunes = append(newRunes, runes[:m.varState.pathTokenStart]...)
+				newRunes = append(newRunes, []rune(opt.Token)...)
+				newCursor := len(newRunes)
+				if m.varState.pathTokenEnd < len(runes) {
+					newRunes = append(newRunes, runes[m.varState.pathTokenEnd:]...)
+				}
+				m.textInput.SetValue(string(newRunes))
+				m.textInput.SetCursor(newCursor)
+				m.varState.pathTokenEnd = newCursor
+			}
+			return func() tea.Msg { return nil } // bypass text input
+		} else if !m.varState.isPromptOnly && m.varState.picker != nil {
 			m.varState.picker.HandleKey(msg)
 		}
 		return nil
@@ -71,12 +87,13 @@ func (m *mainModel) handleVarResolveNavKey(msg tea.KeyMsg) tea.Cmd {
 
 func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg) tea.Cmd {
 	if m.completePathFromInput() {
-		return nil
+		return func() tea.Msg { return nil } // bypass text input to preserve completion state
 	}
 	if !m.varState.isPromptOnly && m.varState.picker != nil {
 		if opt, ok := m.varState.picker.Selected(); ok {
 			m.textInput.SetValue(opt.Display)
 			m.textInput.CursorEnd()
+			return func() tea.Msg { return nil } // bypass text input
 		}
 	}
 	return nil
@@ -130,6 +147,34 @@ func (m *mainModel) completePathFromInput() bool {
 	if m.varState == nil {
 		return false
 	}
+
+	// If path picker is active, this is a tab cycle request
+	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
+		p := m.varState.pathPicker
+		if p.Cursor >= len(p.Filtered)-1 {
+			p.Cursor = 0
+			p.Offset = 0
+		} else {
+			p.MoveCursor(1)
+		}
+
+		if opt, ok := p.Selected(); ok {
+			runes := []rune(m.textInput.Value())
+			newRunes := make([]rune, 0)
+			newRunes = append(newRunes, runes[:m.varState.pathTokenStart]...)
+			newRunes = append(newRunes, []rune(opt.Token)...)
+			newCursor := len(newRunes)
+			if m.varState.pathTokenEnd < len(runes) {
+				newRunes = append(newRunes, runes[m.varState.pathTokenEnd:]...)
+			}
+
+			m.textInput.SetValue(string(newRunes))
+			m.textInput.SetCursor(newCursor)
+			m.varState.pathTokenEnd = newCursor
+		}
+		return true
+	}
+
 	value := m.textInput.Value()
 	cursor := m.textInput.Position()
 	if !m.varState.isPromptOnly && !looksPathLikeInput(value, cursor) {
@@ -144,9 +189,17 @@ func (m *mainModel) completePathFromInput() bool {
 	m.textInput.SetValue(result.Value)
 	m.textInput.SetCursor(result.Cursor)
 
-	show := len(result.Candidates) > 1
-	m.varState.pathCompletions = result.Candidates
-	m.varState.showPathCompletions = show
+	if len(result.Candidates) > 1 {
+		m.varState.pathPicker = NewPicker(result.Candidates, func(item pathCompletionCandidate, words []string) bool {
+			return true
+		})
+		runes := []rune(result.Value)
+		m.varState.pathTokenStart = pathTokenStart(runes, result.Cursor)
+		m.varState.pathTokenEnd = result.Cursor
+	} else {
+		m.varState.pathPicker = nil
+	}
+
 	if !m.varState.isPromptOnly && m.varState.picker != nil {
 		m.varState.picker.Filter(m.textInput.Value())
 	}
@@ -172,8 +225,7 @@ func (m *mainModel) clearPathCompletions() {
 	if m.varState == nil {
 		return
 	}
-	m.varState.pathCompletions = nil
-	m.varState.showPathCompletions = false
+	m.varState.pathPicker = nil
 }
 
 // acceptVarValue accepts the current value and moves to next variable.

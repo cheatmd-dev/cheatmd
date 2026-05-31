@@ -52,12 +52,19 @@ func (m *mainModel) renderVarBottomWithHeight(width int, maxHeight int) string {
 
 	availableForList := max(maxHeight-fixedLines, 1)
 
-	if m.varState.showPathCompletions && len(m.varState.pathCompletions) > 0 {
-		listHeight := min(availableForList, min(10, len(m.varState.pathCompletions)))
-		for i := 0; i < listHeight; i++ {
-			candidate := m.varState.pathCompletions[i]
-			b.WriteString("  ")
-			b.WriteString(styles.Command.Render(candidate.Display))
+	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
+		listHeight := min(availableForList, min(10, len(m.varState.pathPicker.Filtered)))
+		start, end := scrollWindow(m.varState.pathPicker.Cursor, len(m.varState.pathPicker.Filtered), listHeight, &m.varState.pathPicker.Offset)
+
+		for i := start; i < end; i++ {
+			candidate := m.varState.pathPicker.Filtered[i]
+			if i == m.varState.pathPicker.Cursor {
+				b.WriteString(styles.Cursor.Render("▶ "))
+				b.WriteString(styles.Selected.Render(styles.Command.Render(candidate.Display)))
+			} else {
+				b.WriteString("  ")
+				b.WriteString(styles.Command.Render(candidate.Display))
+			}
 			b.WriteString("\n")
 		}
 	} else if !m.varState.isPromptOnly && m.varState.picker != nil && len(m.varState.picker.Filtered) > 0 {
@@ -93,8 +100,8 @@ func (m *mainModel) renderVarBottomWithHeight(width int, maxHeight int) string {
 	b.WriteString(styles.Divider.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
 
-	if m.varState.showPathCompletions && len(m.varState.pathCompletions) > 0 {
-		b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d path matches", len(m.varState.pathCompletions))))
+	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
+		b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d path matches", len(m.varState.pathPicker.Filtered))))
 		b.WriteString(" • ")
 	} else if !m.varState.isPromptOnly && m.varState.picker != nil && len(m.varState.picker.Filtered) > 0 {
 		b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d options", len(m.varState.picker.Filtered))))
