@@ -110,8 +110,9 @@ type varResolveState struct {
 	customHeader        string
 	shellErr            error // error from running shell command (if any)
 	isPromptOnly        bool  // true if no options, just text input
-	pathCompletions     []pathCompletionCandidate
-	showPathCompletions bool
+	pathPicker          *Picker[pathCompletionCandidate]
+	pathTokenStart      int
+	pathTokenEnd        int
 }
 
 func (m *mainModel) applyFrecency(scores map[string]float64) {
