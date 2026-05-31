@@ -12,16 +12,16 @@ import (
 // avoids per-line regex matching. Each non-comment, non-blank line is matched
 // against at most one branch.
 func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []ParseError {
-	lines := joinContinuationLines(strings.Split(content, "\n"))
+	lines := joinContinuationLines(strings.Split(content, "\n"), startLine)
 
 	var currentCondition string
 	var errs []ParseError
 	ifDepth := 0
 	ifLines := []int{}
 
-	for i, line := range lines {
-		lineNo := startLine + i
-		line = strings.TrimSpace(line)
+	for _, ll := range lines {
+		lineNo := ll.lineNo
+		line := strings.TrimSpace(ll.text)
 		if line == "" || line[0] == '#' {
 			continue
 		}
@@ -192,24 +192,36 @@ func containsWhitespace(s string) bool {
 	return false
 }
 
-// joinContinuationLines joins lines that end with backslash.
-func joinContinuationLines(lines []string) []string {
-	var result []string
-	var current strings.Builder
+type logicalLine struct {
+	text   string
+	lineNo int
+}
 
-	for _, line := range lines {
+// joinContinuationLines joins lines that end with backslash and maps back to original line numbers.
+func joinContinuationLines(lines []string, startLine int) []logicalLine {
+	var result []logicalLine
+	var current strings.Builder
+	var startLineNo int
+	isContinuation := false
+
+	for i, line := range lines {
+		if !isContinuation {
+			startLineNo = startLine + i
+		}
 		trimmed := strings.TrimRight(line, " \t")
 		if strings.HasSuffix(trimmed, "\\") {
 			current.WriteString(strings.TrimSuffix(trimmed, "\\"))
+			isContinuation = true
 		} else {
 			current.WriteString(line)
-			result = append(result, current.String())
+			result = append(result, logicalLine{text: current.String(), lineNo: startLineNo})
 			current.Reset()
+			isContinuation = false
 		}
 	}
 
 	if current.Len() > 0 {
-		result = append(result, current.String())
+		result = append(result, logicalLine{text: current.String(), lineNo: startLineNo})
 	}
 
 	return result
