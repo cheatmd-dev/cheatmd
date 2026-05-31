@@ -512,7 +512,7 @@ func (p *Parser) createCheat(path string, s *parseState, block codeBlock, cheatB
 		p.index.Errors = append(p.index.Errors, ParseError{
 			File:    path,
 			Line:    cheatLine,
-			Message: "cheat contains raw ANSI escape sequences which will be sanitized",
+			Message: "cheat contains raw ANSI escape sequences which may cause parsing errors. Please remove them manually.",
 		})
 	}
 
