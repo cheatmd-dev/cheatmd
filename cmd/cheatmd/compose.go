@@ -14,15 +14,15 @@ import (
 )
 
 var composeCmd = &cobra.Command{
-	Use:	"compose [command]",
-	Short:	"Compose a new cheat template from a raw command line",
+	Use:   "compose [command]",
+	Short: "Compose a new cheat template from a raw command line",
 	Long: `Quickly templatize a shell command you just used into a CheatMD snippet.
 It automatically extracts any $var or <var> variables and writes a complete cheat block.
 
 Examples:
   cheatmd compose -n "My Cheat" "curl -X POST <url> -H 'Auth: <token>'"
   echo "ssh -p $port $user@$host" | cheatmd compose -f ~/cheats.md`,
-	RunE:	runCompose,
+	RunE: runCompose,
 }
 
 func init() {
@@ -33,10 +33,10 @@ func init() {
 }
 
 type composeOptions struct {
-	name		string
-	desc		string
-	file		string
-	printOnly	bool
+	name      string
+	desc      string
+	file      string
+	printOnly bool
 }
 
 func parseComposeOptions(cmd *cobra.Command) composeOptions {

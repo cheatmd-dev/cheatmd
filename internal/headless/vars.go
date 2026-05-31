@@ -266,12 +266,12 @@ func (s *RunnerSession) buildPromptVarIfReady(vs *resolver.VarState, idx int, sc
 	options := s.evaluateShellOptions(vs, scope, selectOpts)
 
 	return &promptVar{
-		Name:		vs.Def.Name,
-		Header:		resolver.ExtractCustomHeader(vs.Def.Args),
-		Placeholder:	vs.Prefill,
-		Options:	options,
-		Multi:		selectOpts.Multi,
-		varIdx:		idx,
+		Name:        vs.Def.Name,
+		Header:      resolver.ExtractCustomHeader(vs.Def.Args),
+		Placeholder: vs.Prefill,
+		Options:     options,
+		Multi:       selectOpts.Multi,
+		varIdx:      idx,
 	}
 }
 
@@ -324,12 +324,12 @@ func (s *RunnerSession) promptClient(promptVars []promptVar) error {
 
 func (s *RunnerSession) marshalPromptRequest(promptVars []promptVar) ([]byte, error) {
 	promptReq := map[string]interface{}{
-		"jsonrpc":	"2.0",
-		"method":	"prompt",
+		"jsonrpc": "2.0",
+		"method":  "prompt",
 		"params": map[string]interface{}{
 			"variables": promptVars,
 		},
-		"id":	1,
+		"id": 1,
 	}
 
 	reqBytes, err := json.Marshal(promptReq)
@@ -340,15 +340,15 @@ func (s *RunnerSession) marshalPromptRequest(promptVars []promptVar) ([]byte, er
 }
 
 type promptResponse struct {
-	Jsonrpc	string	`json:"jsonrpc"`
-	Result	struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Result  struct {
 		Values map[string]string `json:"values"`
-	}	`json:"result"`
-	Error	*struct {
-		Code	int	`json:"code"`
-		Message	string	`json:"message"`
-	}	`json:"error"`
-	Id	int	`json:"id"`
+	} `json:"result"`
+	Error *struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+	Id int `json:"id"`
 }
 
 func (s *RunnerSession) parsePromptResponse(line string) (*promptResponse, error) {

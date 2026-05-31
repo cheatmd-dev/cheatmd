@@ -10,15 +10,15 @@ import (
 )
 
 var chainCmd = &cobra.Command{
-	Use:	"chain",
-	Short:	"Manage chain progress",
+	Use:   "chain",
+	Short: "Manage chain progress",
 }
 
 var chainResetCmd = &cobra.Command{
-	Use:	"reset [name]",
-	Short:	"Reset chain progress",
-	Args:	cobra.MaximumNArgs(1),
-	RunE:	runChainReset,
+	Use:   "reset [name]",
+	Short: "Reset chain progress",
+	Args:  cobra.MaximumNArgs(1),
+	RunE:  runChainReset,
 }
 
 func runChainReset(cmd *cobra.Command, args []string) error {

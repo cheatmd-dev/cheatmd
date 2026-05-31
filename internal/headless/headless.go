@@ -25,30 +25,30 @@ type Executor interface {
 
 // promptVar defines the JSON-RPC structure for prompting variables.
 type promptVar struct {
-	Name		string		`json:"name"`
-	Header		string		`json:"header"`
-	Placeholder	string		`json:"placeholder"`
-	Options		[]string	`json:"options"`
-	Multi		bool		`json:"multi"`
-	varIdx		int		`json:"-"`
+	Name        string   `json:"name"`
+	Header      string   `json:"header"`
+	Placeholder string   `json:"placeholder"`
+	Options     []string `json:"options"`
+	Multi       bool     `json:"multi"`
+	varIdx      int      `json:"-"`
 }
 
 // RunnerSession encapsulates the state and lifecycle of a command execution process.
 // It orchestrates variable resolution and final command execution.
 type RunnerSession struct {
-	Index	*parser.CheatIndex
-	Exec	Executor
-	Cheat	*parser.Cheat
-	Vars	[]resolver.VarState
-	Scanner	*bufio.Scanner
+	Index   *parser.CheatIndex
+	Exec    Executor
+	Cheat   *parser.Cheat
+	Vars    []resolver.VarState
+	Scanner *bufio.Scanner
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
 func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string) error {
 	session := &RunnerSession{
-		Index:		index,
-		Exec:		exec,
-		Scanner:	bufio.NewScanner(os.Stdin),
+		Index:   index,
+		Exec:    exec,
+		Scanner: bufio.NewScanner(os.Stdin),
 	}
 	return session.Execute(initialQuery, matchCmd)
 }
@@ -169,7 +169,7 @@ func (s *RunnerSession) executeWithConfiguredMode(finalCmd string) (string, stri
 	case "copy":
 		err := s.Exec.OutputWithMode(finalCmd, executor.OutputCopy)
 		return "", "", err
-	default:	// print
+	default: // print
 		return finalCmd, "", nil
 	}
 }
@@ -178,15 +178,15 @@ func (s *RunnerSession) reportCompletion(finalCmd, stdout, stderr string, runErr
 	status, errMsg := s.determineRunStatus(runErr)
 
 	completedFrame := map[string]interface{}{
-		"jsonrpc":	"2.0",
-		"method":	"completed",
+		"jsonrpc": "2.0",
+		"method":  "completed",
 		"params": map[string]interface{}{
-			"status":	status,
-			"command":	finalCmd,
-			"stdout":	stdout,
-			"stderr":	stderr,
-			"error":	errMsg,
-			"exit_code":	getExitCode(runErr),
+			"status":    status,
+			"command":   finalCmd,
+			"stdout":    stdout,
+			"stderr":    stderr,
+			"error":     errMsg,
+			"exit_code": getExitCode(runErr),
 		},
 	}
 

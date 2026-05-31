@@ -170,7 +170,6 @@ func Get() *Config {
 	return &cfg
 }
 
-
 // configureViper sets up viper configuration sources
 func configureViper() {
 	viper.SetConfigName("cheatmd")

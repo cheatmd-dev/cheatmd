@@ -8,45 +8,45 @@ import (
 // StyleManager encapsulates all TUI styles and provides methods for style operations
 type StyleManager struct {
 	// List view styles
-	Header		lipgloss.Style
-	Desc		lipgloss.Style
-	Command		lipgloss.Style
-	Path		lipgloss.Style
-	Selected	lipgloss.Style
-	Cursor		lipgloss.Style
-	Dim		lipgloss.Style
+	Header   lipgloss.Style
+	Desc     lipgloss.Style
+	Command  lipgloss.Style
+	Path     lipgloss.Style
+	Selected lipgloss.Style
+	Cursor   lipgloss.Style
+	Dim      lipgloss.Style
 
 	// Preview styles
-	PreviewHeader	lipgloss.Style
-	PreviewDesc	lipgloss.Style
-	PreviewCmd	lipgloss.Style
-	PreviewPath	lipgloss.Style
+	PreviewHeader lipgloss.Style
+	PreviewDesc   lipgloss.Style
+	PreviewCmd    lipgloss.Style
+	PreviewPath   lipgloss.Style
 
 	// Chrome styles
-	Border	lipgloss.Style
-	Divider	lipgloss.Style
+	Border  lipgloss.Style
+	Divider lipgloss.Style
 
 	// Colors for direct access
-	SelectedBg	lipgloss.Color
+	SelectedBg lipgloss.Color
 }
 
 // DefaultStyles returns a StyleManager with default styles
 func DefaultStyles() *StyleManager {
 	return &StyleManager{
-		Header:		lipgloss.NewStyle().Bold(true),
-		Desc:		lipgloss.NewStyle(),
-		Command:	lipgloss.NewStyle(),
-		Path:		lipgloss.NewStyle(),
-		Selected:	lipgloss.NewStyle().Background(lipgloss.Color("236")),
-		Cursor:		lipgloss.NewStyle().Foreground(lipgloss.Color("212")),
-		Dim:		lipgloss.NewStyle().Foreground(lipgloss.Color("241")),
-		PreviewHeader:	lipgloss.NewStyle().Bold(true),
-		PreviewDesc:	lipgloss.NewStyle(),
-		PreviewCmd:	lipgloss.NewStyle(),
-		PreviewPath:	lipgloss.NewStyle(),
-		Border:		lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")),
-		Divider:	lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
-		SelectedBg:	lipgloss.Color("236"),
+		Header:        lipgloss.NewStyle().Bold(true),
+		Desc:          lipgloss.NewStyle(),
+		Command:       lipgloss.NewStyle(),
+		Path:          lipgloss.NewStyle(),
+		Selected:      lipgloss.NewStyle().Background(lipgloss.Color("236")),
+		Cursor:        lipgloss.NewStyle().Foreground(lipgloss.Color("212")),
+		Dim:           lipgloss.NewStyle().Foreground(lipgloss.Color("241")),
+		PreviewHeader: lipgloss.NewStyle().Bold(true),
+		PreviewDesc:   lipgloss.NewStyle(),
+		PreviewCmd:    lipgloss.NewStyle(),
+		PreviewPath:   lipgloss.NewStyle(),
+		Border:        lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")),
+		Divider:       lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		SelectedBg:    lipgloss.Color("236"),
 	}
 }
 
@@ -91,10 +91,10 @@ func (s *StyleManager) WithSelection(style lipgloss.Style) lipgloss.Style {
 // parseANSIColor converts ANSI color codes to lipgloss colors
 func parseANSIColor(code string) lipgloss.Color {
 	ansiToLipgloss := map[string]string{
-		"30":	"0", "31": "1", "32": "2", "33": "3",
-		"34":	"4", "35": "5", "36": "6", "37": "7",
-		"90":	"8", "91": "9", "92": "10", "93": "11",
-		"94":	"12", "95": "13", "96": "14", "97": "15",
+		"30": "0", "31": "1", "32": "2", "33": "3",
+		"34": "4", "35": "5", "36": "6", "37": "7",
+		"90": "8", "91": "9", "92": "10", "93": "11",
+		"94": "12", "95": "13", "96": "14", "97": "15",
 	}
 	if mapped, ok := ansiToLipgloss[code]; ok {
 		return lipgloss.Color(mapped)

@@ -1,10 +1,10 @@
 package main
 
 import (
-"strings"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -16,8 +16,8 @@ import (
 )
 
 var packsCmd = &cobra.Command{
-	Use:	"packs",
-	Short:	"Browse and install cheat packs from the registry",
+	Use:   "packs",
+	Short: "Browse and install cheat packs from the registry",
 	Long: `Browse and install community cheat packs from the registry.
 
 The registry is a YAML manifest of installable cheat repositories, configured
@@ -26,29 +26,29 @@ via the registry_url setting. Installed packs land in the cheats directory
 }
 
 var packsListCmd = &cobra.Command{
-	Use:	"list",
-	Short:	"List available cheat packs",
-	Args:	cobra.NoArgs,
-	RunE:	runPacksList,
+	Use:   "list",
+	Short: "List available cheat packs",
+	Args:  cobra.NoArgs,
+	RunE:  runPacksList,
 }
 
 var packsInstallCmd = &cobra.Command{
-	Use:	"install [name...]",
-	Short:	"Install cheat packs (interactive picker when no names are given)",
-	RunE:	runPacksInstall,
+	Use:   "install [name...]",
+	Short: "Install cheat packs (interactive picker when no names are given)",
+	RunE:  runPacksInstall,
 }
 
 var packsUpdateCmd = &cobra.Command{
-	Use:	"update [name...]",
-	Short:	"Update installed cheat packs",
-	RunE:	runPacksUpdate,
+	Use:   "update [name...]",
+	Short: "Update installed cheat packs",
+	RunE:  runPacksUpdate,
 }
 
 var packsRemoveCmd = &cobra.Command{
-	Use:	"remove [name...]",
-	Short:	"Remove installed cheat packs",
-	Args:	cobra.MinimumNArgs(1),
-	RunE:	runPacksRemove,
+	Use:   "remove [name...]",
+	Short: "Remove installed cheat packs",
+	Args:  cobra.MinimumNArgs(1),
+	RunE:  runPacksRemove,
 }
 
 func init() {

@@ -16,15 +16,15 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:		"cheatmd [path]",
-	Short:		"Executable Markdown Cheatsheets",
-	SilenceUsage:	true,
+	Use:          "cheatmd [path]",
+	Short:        "Executable Markdown Cheatsheets",
+	SilenceUsage: true,
 	Long: `Command cheatsheet tool that uses real Markdown files.
 
 Browse your cheatsheets interactively, select commands,
 fill in variables, and execute or copy the result.`,
-	Args:	cobra.MaximumNArgs(1),
-	RunE:	runCheats,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runCheats,
 }
 
 func init() {
@@ -196,7 +196,7 @@ func executeHeadlessOrTUI(cmd *cobra.Command, index *parser.CheatIndex, exec *ex
 		return exec.OutputWithMode(finalCmd, executor.OutputExec)
 	case "copy":
 		return exec.OutputWithMode(finalCmd, executor.OutputCopy)
-	default:	// print
+	default: // print
 		fmt.Fprint(cmd.OutOrStdout(), finalCmd)
 		return nil
 	}

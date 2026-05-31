@@ -23,12 +23,12 @@ import (
 
 // cheatItem wraps a Cheat with display metadata.
 type cheatItem struct {
-	cheat		*parser.Cheat
-	folder		string
-	file		string
-	chainName	string
-	chainStep	int
-	chainTotal	int
+	cheat      *parser.Cheat
+	folder     string
+	file       string
+	chainName  string
+	chainStep  int
+	chainTotal int
 }
 
 func newCheatItem(cheat *parser.Cheat) cheatItem {
@@ -36,15 +36,15 @@ func newCheatItem(cheat *parser.Cheat) cheatItem {
 	file := strings.TrimSuffix(filepath.Base(cheat.File), filepath.Ext(cheat.File))
 
 	return cheatItem{
-		cheat:	cheat,
-		folder:	folder,
-		file:	file,
+		cheat:  cheat,
+		folder: folder,
+		file:   file,
 	}
 }
 
 type chainGroup struct {
-	Name	string
-	Steps	[]*parser.Cheat
+	Name  string
+	Steps []*parser.Cheat
 }
 
 func buildChains(cheats []*parser.Cheat) []chainGroup {
@@ -133,19 +133,19 @@ func buildPathDisplay(folder, file string) string {
 
 // columnConfig holds display column widths and gaps.
 type columnConfig struct {
-	headerWidth	int
-	descWidth	int
-	cmdWidth	int
-	gap		int
+	headerWidth int
+	descWidth   int
+	cmdWidth    int
+	gap         int
 }
 
 // loadColumnConfig loads column configuration from config.
 func loadColumnConfig() columnConfig {
 	return columnConfig{
-		headerWidth:	config.Get().Columns.Header,
-		descWidth:	config.Get().Columns.Desc,
-		cmdWidth:	config.Get().Columns.Command,
-		gap:		config.Get().Columns.Gap,
+		headerWidth: config.Get().Columns.Header,
+		descWidth:   config.Get().Columns.Desc,
+		cmdWidth:    config.Get().Columns.Command,
+		gap:         config.Get().Columns.Gap,
 	}
 }
 
@@ -313,7 +313,7 @@ func (m *mainModel) renderCheatSelect() string {
 		height = 24
 	}
 
-	inputLines := 3	// divider + info + input
+	inputLines := 3 // divider + info + input
 
 	previewHeight := config.Get().PreviewHeight
 	if previewHeight < 1 {
@@ -466,7 +466,7 @@ func (m *mainModel) renderHeaderColumn(pathPart, headerPart string, pStyle, hSty
 		} else {
 			headerPart = runewidth.Truncate(headerPart, m.columns.headerWidth, "…")
 		}
-		
+
 		// Recalculate width
 		fullWidth = runewidth.StringWidth(pathPart)
 		if pathPart != "" && headerPart != "" {

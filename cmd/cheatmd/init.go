@@ -20,8 +20,8 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:	"init",
-	Short:	"Initialize CheatMD config and install starter cheats",
+	Use:   "init",
+	Short: "Initialize CheatMD config and install starter cheats",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 
@@ -113,9 +113,9 @@ func installPacks(ctx context.Context, out io.Writer, packs []registry.Pack) (de
 			continue
 		}
 		manifest.Upsert(packmanifest.Entry{
-			Name:		pack.Name,
-			Repo:		pack.Repo,
-			InstalledAt:	time.Now(),
+			Name:        pack.Name,
+			Repo:        pack.Repo,
+			InstalledAt: time.Now(),
 		})
 		installed++
 	}

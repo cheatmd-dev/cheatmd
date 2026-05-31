@@ -36,10 +36,10 @@ func recordRun(cheat *parser.Cheat, finalCmd string) {
 		}
 	}
 	_ = history.Append(path, history.Entry{
-		Command:	finalCmd,
-		File:		cheat.File,
-		Header:		cheat.Header,
-		Scope:		scopeCopy,
+		Command: finalCmd,
+		File:    cheat.File,
+		Header:  cheat.Header,
+		Scope:   scopeCopy,
 	})
 }
 

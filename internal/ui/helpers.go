@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"strings"
 	"github.com/mattn/go-runewidth"
+	"strings"
 )
 
 // clamp restricts v to the range [minV, maxV].

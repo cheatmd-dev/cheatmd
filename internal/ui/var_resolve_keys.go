@@ -99,7 +99,7 @@ func (m *mainModel) handleVarResolveSpace(msg tea.KeyMsg) tea.Cmd {
 				vs.multiSelectedSet[original] = true
 				vs.multiSelected = append(vs.multiSelected, original)
 			}
-			return func() tea.Msg { return nil }	// Return a non-nil dummy command to bypass text input
+			return func() tea.Msg { return nil } // Return a non-nil dummy command to bypass text input
 		}
 	}
 	return nil

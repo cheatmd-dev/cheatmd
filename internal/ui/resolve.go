@@ -70,8 +70,6 @@ func extractCustomHeader(selectorArgs string) string {
 	return resolver.ExtractCustomHeader(selectorArgs)
 }
 
-
-
 // applyMapTransform transforms the selected value based on options
 func applyMapTransform(value string, opts SelectOptions) string {
 	return resolver.ApplyMapTransform(value, opts)

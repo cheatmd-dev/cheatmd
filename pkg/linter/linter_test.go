@@ -213,7 +213,7 @@ for i in {1..10}; do echo <a>.$i; done
 <!-- cheat
 -->
 `,
-			wantErrors: []string{"variable \"a\" referenced"},
+			wantErrors:  []string{"variable \"a\" referenced"},
 			avoidErrors: []string{"variable \"i\" referenced"},
 		},
 		{
@@ -238,7 +238,7 @@ $obj = ConvertFrom-Json $input_data
 <!-- cheat
 -->
 `,
-			wantErrors: []string{"variable \"input_data\" referenced"},
+			wantErrors:  []string{"variable \"input_data\" referenced"},
 			avoidErrors: []string{"variable \"obj\" referenced"},
 		},
 		{

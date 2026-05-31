@@ -15,10 +15,10 @@ import (
 )
 
 var dumpCmd = &cobra.Command{
-	Use:	"dump [path]",
-	Short:	"Dump parsed cheat metadata",
-	Args:	cobra.MaximumNArgs(1),
-	RunE:	runDump,
+	Use:   "dump [path]",
+	Short: "Dump parsed cheat metadata",
+	Args:  cobra.MaximumNArgs(1),
+	RunE:  runDump,
 }
 
 func init() {
@@ -27,22 +27,22 @@ func init() {
 }
 
 type dumpEntry struct {
-	Filename	string		`json:"filename"`
-	Tags		[]string	`json:"tags"`
-	Title		string		`json:"title"`
-	Description	string		`json:"description"`
-	Command		string		`json:"command"`
-	ChainName	string		`json:"chain_name,omitempty"`
-	ChainStep	int		`json:"chain_step,omitempty"`
-	Variables	[]dumpVar	`json:"variables"`
+	Filename    string    `json:"filename"`
+	Tags        []string  `json:"tags"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Command     string    `json:"command"`
+	ChainName   string    `json:"chain_name,omitempty"`
+	ChainStep   int       `json:"chain_step,omitempty"`
+	Variables   []dumpVar `json:"variables"`
 }
 
 type dumpVar struct {
-	Name		string	`json:"name"`
-	Kind		string	`json:"kind"`
-	Value		string	`json:"value,omitempty"`
-	Args		string	`json:"args,omitempty"`
-	Condition	string	`json:"condition,omitempty"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	Value     string `json:"value,omitempty"`
+	Args      string `json:"args,omitempty"`
+	Condition string `json:"condition,omitempty"`
 }
 
 func runDump(cmd *cobra.Command, args []string) error {
@@ -63,14 +63,14 @@ func runDump(cmd *cobra.Command, args []string) error {
 	entries := make([]dumpEntry, 0, len(index.Cheats))
 	for _, cheat := range index.Cheats {
 		entries = append(entries, dumpEntry{
-			Filename:	cheat.File,
-			Tags:		cheat.Tags,
-			Title:		cheat.Header,
-			Description:	cheat.Description,
-			Command:	cheat.Command,
-			ChainName:	cheat.ChainName,
-			ChainStep:	cheat.ChainStep,
-			Variables:	dumpVars(cheat.Vars),
+			Filename:    cheat.File,
+			Tags:        cheat.Tags,
+			Title:       cheat.Header,
+			Description: cheat.Description,
+			Command:     cheat.Command,
+			ChainName:   cheat.ChainName,
+			ChainStep:   cheat.ChainStep,
+			Variables:   dumpVars(cheat.Vars),
 		})
 	}
 
@@ -87,9 +87,9 @@ func dumpVars(vars []parser.VarDef) []dumpVar {
 	out := make([]dumpVar, 0, len(vars))
 	for _, v := range vars {
 		dv := dumpVar{
-			Name:		v.Name,
-			Args:		v.Args,
-			Condition:	v.Condition,
+			Name:      v.Name,
+			Args:      v.Args,
+			Condition: v.Condition,
 		}
 		switch {
 		case v.Literal != "":

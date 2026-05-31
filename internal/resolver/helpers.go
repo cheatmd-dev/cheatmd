@@ -78,7 +78,7 @@ func ApplyMapTransform(value string, opts SelectOptions) string {
 	cmd.Stdin = strings.NewReader(value)
 	out, err := cmd.Output()
 	if err != nil {
-		return value	// fallback to original on error
+		return value // fallback to original on error
 	}
 	return strings.TrimSpace(string(out))
 }

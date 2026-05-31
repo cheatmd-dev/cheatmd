@@ -13,12 +13,12 @@ import (
 
 // historyState holds the overlay state for the execution-history picker.
 type historyState struct {
-	picker	*Picker[history.Entry]
+	picker *Picker[history.Entry]
 
 	// Saved cheat-select state to restore on cancel.
-	prevInput	string
-	prevCursor	int
-	prevOffset	int
+	prevInput  string
+	prevCursor int
+	prevOffset int
 }
 
 // enterHistory transitions from phaseCheatSelect into the history overlay.
@@ -38,9 +38,9 @@ func (m *mainModel) enterHistory() bool {
 			hay := strings.ToLower(e.Command + " " + e.Header + " " + e.File)
 			return matchesAllWords(hay, words)
 		}),
-		prevInput:	m.textInput.Value(),
-		prevCursor:	m.picker.Cursor,
-		prevOffset:	m.picker.Offset,
+		prevInput:  m.textInput.Value(),
+		prevCursor: m.picker.Cursor,
+		prevOffset: m.picker.Offset,
 	}
 	m.textInput.SetValue("")
 	m.textInput.Placeholder = "Search history..."
@@ -168,14 +168,14 @@ func (m *mainModel) renderHistory() string {
 	}
 
 	return m.renderOverlayWindow(OverlayConfig{
-		Title:		"History",
-		TitleExtra:	extra,
-		MatchesCount:	matchCount,
-		EnterHint:	"Enter re-run cheat",
-		Items:		items,
-		SelectedIndex:	cursor,
-		Offset:		offset,
-		Input:		m.textInput,
+		Title:         "History",
+		TitleExtra:    extra,
+		MatchesCount:  matchCount,
+		EnterHint:     "Enter re-run cheat",
+		Items:         items,
+		SelectedIndex: cursor,
+		Offset:        offset,
+		Input:         m.textInput,
 	})
 }
 

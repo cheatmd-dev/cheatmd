@@ -18,15 +18,15 @@ import (
 // The user enters via the configured key during phaseCheatSelect or
 // phaseVarResolve and returns to the previous phase on Esc.
 type previewOverlayState struct {
-	viewport	viewport.Model
-	cheat		*parser.Cheat	// cheat whose file is being shown
-	prevPhase	uiPhase		// phase to restore on exit
-	errorMsg	string		// non-empty if rendering or reading failed
+	viewport  viewport.Model
+	cheat     *parser.Cheat // cheat whose file is being shown
+	prevPhase uiPhase       // phase to restore on exit
+	errorMsg  string        // non-empty if rendering or reading failed
 }
 
 type previewPendingCodeBlock struct {
-	command		string
-	headerLine	int
+	command    string
+	headerLine int
 }
 
 // enterPreview transitions to phasePreview with the markdown rendering of the
@@ -41,9 +41,9 @@ func (m *mainModel) enterPreview(c *parser.Cheat) bool {
 	data, err := os.ReadFile(c.File)
 	if err != nil {
 		m.previewState = &previewOverlayState{
-			cheat:		c,
-			prevPhase:	m.phase,
-			errorMsg:	fmt.Sprintf("Could not read %s: %v", c.File, err),
+			cheat:     c,
+			prevPhase: m.phase,
+			errorMsg:  fmt.Sprintf("Could not read %s: %v", c.File, err),
 		}
 		m.previewState.viewport = newPreviewViewport(m.width, m.height)
 		m.previewState.viewport.SetContent(m.previewState.errorMsg)
@@ -67,9 +67,9 @@ func (m *mainModel) enterPreview(c *parser.Cheat) bool {
 	}
 
 	m.previewState = &previewOverlayState{
-		viewport:	vp,
-		cheat:		c,
-		prevPhase:	m.phase,
+		viewport:  vp,
+		cheat:     c,
+		prevPhase: m.phase,
 	}
 	m.phase = phasePreview
 	return true
@@ -91,7 +91,7 @@ func (m *mainModel) updatePreview(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		if m.previewState != nil {
 			m.previewState.viewport.Width = max(msg.Width, 1)
-			m.previewState.viewport.Height = max(msg.Height-1, 1)	// 1 row for hint
+			m.previewState.viewport.Height = max(msg.Height-1, 1) // 1 row for hint
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -161,36 +161,36 @@ func cheatmdGlamourStyle() ansi.StyleConfig {
 	listIndent := uint(2)
 
 	cfg := ansi.StyleConfig{
-		Document:		cheatmdDocumentStyle(margin),
-		BlockQuote:		cheatmdBlockQuoteStyle(),
-		List:			ansi.StyleList{LevelIndent: listIndent},
-		Heading:		cheatmdHeadingStyle(true),
-		H1:			cheatmdHeadingStyleLevel(" ", " "),
-		H2:			cheatmdHeadingStyleLevel("## ", ""),
-		H3:			cheatmdHeadingStyleLevel("### ", ""),
-		H4:			cheatmdHeadingStyleLevel("#### ", ""),
-		H5:			cheatmdHeadingStyleLevel("##### ", ""),
-		H6:			cheatmdHeadingStyleLevelDim("###### "),
-		Strikethrough:		ansi.StylePrimitive{CrossedOut: bPtr(true)},
-		Emph:			ansi.StylePrimitive{Italic: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
-		Strong:			ansi.StylePrimitive{Bold: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
-		HorizontalRule:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Border), Format: "\n────────\n"},
-		Item:			ansi.StylePrimitive{BlockPrefix: "• "},
-		Enumeration:		ansi.StylePrimitive{BlockPrefix: ". "},
-		Task:			ansi.StyleTask{StylePrimitive: ansi.StylePrimitive{}, Ticked: "[✓] ", Unticked: "[ ] "},
-		Link:			ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
-		LinkText:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Bold: bPtr(true)},
-		Image:			ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
-		ImageText:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim), Format: "Image: {{.text}} →"},
-		Code:			ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: " ", Suffix: " ", Color: cPtr(config.Get().Colors.Command)}},
-		CodeBlock:		cheatmdCodeBlockStyle(margin),
-		Table:			ansi.StyleTable{StyleBlock: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{}}},
-		DefinitionDescription:	ansi.StylePrimitive{BlockPrefix: "\n→ "},
+		Document:              cheatmdDocumentStyle(margin),
+		BlockQuote:            cheatmdBlockQuoteStyle(),
+		List:                  ansi.StyleList{LevelIndent: listIndent},
+		Heading:               cheatmdHeadingStyle(true),
+		H1:                    cheatmdHeadingStyleLevel(" ", " "),
+		H2:                    cheatmdHeadingStyleLevel("## ", ""),
+		H3:                    cheatmdHeadingStyleLevel("### ", ""),
+		H4:                    cheatmdHeadingStyleLevel("#### ", ""),
+		H5:                    cheatmdHeadingStyleLevel("##### ", ""),
+		H6:                    cheatmdHeadingStyleLevelDim("###### "),
+		Strikethrough:         ansi.StylePrimitive{CrossedOut: bPtr(true)},
+		Emph:                  ansi.StylePrimitive{Italic: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
+		Strong:                ansi.StylePrimitive{Bold: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
+		HorizontalRule:        ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Border), Format: "\n────────\n"},
+		Item:                  ansi.StylePrimitive{BlockPrefix: "• "},
+		Enumeration:           ansi.StylePrimitive{BlockPrefix: ". "},
+		Task:                  ansi.StyleTask{StylePrimitive: ansi.StylePrimitive{}, Ticked: "[✓] ", Unticked: "[ ] "},
+		Link:                  ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
+		LinkText:              ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Bold: bPtr(true)},
+		Image:                 ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
+		ImageText:             ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim), Format: "Image: {{.text}} →"},
+		Code:                  ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: " ", Suffix: " ", Color: cPtr(config.Get().Colors.Command)}},
+		CodeBlock:             cheatmdCodeBlockStyle(margin),
+		Table:                 ansi.StyleTable{StyleBlock: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{}}},
+		DefinitionDescription: ansi.StylePrimitive{BlockPrefix: "\n→ "},
 	}
 	return cfg
 }
 
-func sPtr(s string) *string	{ return &s }
+func sPtr(s string) *string { return &s }
 
 func cPtr(code string) *string {
 	ansiMap := map[string]string{
@@ -204,21 +204,21 @@ func cPtr(code string) *string {
 	}
 	return &code
 }
-func bPtr(v bool) *bool		{ return &v }
-func uPtr(v uint) *uint		{ return &v }
+func bPtr(v bool) *bool { return &v }
+func uPtr(v uint) *uint { return &v }
 
 func cheatmdDocumentStyle(margin uint) ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive:	ansi.StylePrimitive{BlockPrefix: "\n", BlockSuffix: "\n", Color: cPtr(config.Get().Colors.Desc)},
-		Margin:		uPtr(margin),
+		StylePrimitive: ansi.StylePrimitive{BlockPrefix: "\n", BlockSuffix: "\n", Color: cPtr(config.Get().Colors.Desc)},
+		Margin:         uPtr(margin),
 	}
 }
 
 func cheatmdBlockQuoteStyle() ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive:	ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim)},
-		Indent:		uPtr(1),
-		IndentToken:	sPtr("│ "),
+		StylePrimitive: ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim)},
+		Indent:         uPtr(1),
+		IndentToken:    sPtr("│ "),
 	}
 }
 
@@ -243,8 +243,8 @@ func cheatmdHeadingStyleLevelDim(prefix string) ansi.StyleBlock {
 func cheatmdCodeBlockStyle(margin uint) ansi.StyleCodeBlock {
 	return ansi.StyleCodeBlock{
 		StyleBlock: ansi.StyleBlock{
-			StylePrimitive:	ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Command)},
-			Margin:		uPtr(margin),
+			StylePrimitive: ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Command)},
+			Margin:         uPtr(margin),
 		},
 	}
 }
@@ -258,11 +258,11 @@ func findCheatHeaderSourceLine(raw string, cheat *parser.Cheat) int {
 	}
 
 	var (
-		currentHeaderLine	= -1
-		inCodeFence		bool
-		inCheatBlock		bool
-		codeLines		[]string
-		pending			[]previewPendingCodeBlock
+		currentHeaderLine = -1
+		inCodeFence       bool
+		inCheatBlock      bool
+		codeLines         []string
+		pending           []previewPendingCodeBlock
 	)
 
 	lines := strings.Split(raw, "\n")
@@ -275,8 +275,8 @@ func findCheatHeaderSourceLine(raw string, cheat *parser.Cheat) int {
 				command := strings.TrimSpace(strings.Join(codeLines, "\n"))
 				if command != "" {
 					pending = append(pending, previewPendingCodeBlock{
-						command:	command,
-						headerLine:	currentHeaderLine,
+						command:    command,
+						headerLine: currentHeaderLine,
 					})
 				}
 				codeLines = nil

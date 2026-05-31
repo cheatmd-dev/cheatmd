@@ -13,11 +13,11 @@ import (
 // env/history value, and returns to phaseVarResolve with the chosen value
 // loaded into the var prompt.
 type substituteSearchState struct {
-	picker	*Picker[substituteOption]
+	picker *Picker[substituteOption]
 
-	prevInput	string	// textInput value before entering the overlay
-	prevCursor	int
-	prevOffset	int
+	prevInput  string // textInput value before entering the overlay
+	prevCursor int
+	prevOffset int
 }
 
 // updateSubstituteSearch handles updates while the substitute overlay is open.
@@ -60,9 +60,9 @@ func (m *mainModel) enterSubstituteSearch() bool {
 			hay := strings.ToLower(opt.Display)
 			return matchesAllWords(hay, words)
 		}),
-		prevInput:	m.textInput.Value(),
-		prevCursor:	m.picker.Cursor,
-		prevOffset:	m.picker.Offset,
+		prevInput:  m.textInput.Value(),
+		prevCursor: m.picker.Cursor,
+		prevOffset: m.picker.Offset,
 	}
 	m.textInput.SetValue("")
 	m.textInput.Placeholder = "Search env / history..."
@@ -164,13 +164,13 @@ func (m *mainModel) renderSubstituteSearch() string {
 	}
 
 	return m.renderOverlayWindow(OverlayConfig{
-		Title:		"Substitute search",
-		TitleExtra:	extra,
-		MatchesCount:	matchCount,
-		EnterHint:	"Enter use value",
-		Items:		items,
-		SelectedIndex:	cursor,
-		Offset:		offset,
-		Input:		m.textInput,
+		Title:         "Substitute search",
+		TitleExtra:    extra,
+		MatchesCount:  matchCount,
+		EnterHint:     "Enter use value",
+		Items:         items,
+		SelectedIndex: cursor,
+		Offset:        offset,
+		Input:         m.textInput,
 	})
 }

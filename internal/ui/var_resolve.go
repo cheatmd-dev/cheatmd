@@ -18,8 +18,8 @@ import (
 
 // shellResultMsg is sent when a shell command completes.
 type shellResultMsg struct {
-	options	[]string
-	err	error
+	options []string
+	err     error
 }
 
 // ============================================================================
@@ -66,9 +66,9 @@ func (m *mainModel) startVarResolutionInternal() {
 	}
 
 	m.varState = &varResolveState{
-		cheat:		cheat,
-		vars:		vars,
-		currentIdx:	0,
+		cheat:      cheat,
+		vars:       vars,
+		currentIdx: 0,
 	}
 	m.phase = phaseVarResolve
 
@@ -274,9 +274,9 @@ func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
 		for i, opt := range msg.options {
 			display := getDisplayColumn(opt, opts.Delimiter, opts.Column)
 			items[i] = FilteredOption{
-				Display:	display,
-				Original:	opt,
-				SearchText:	strings.ToLower(display),
+				Display:    display,
+				Original:   opt,
+				SearchText: strings.ToLower(display),
 			}
 		}
 
