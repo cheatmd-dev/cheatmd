@@ -70,16 +70,6 @@ func truncateLines(text string, maxLines int, maxLen int) string {
 	return text
 }
 
-// matchesAllWords returns true if text contains all words.
-func matchesAllWords(text string, words []string) bool {
-	for _, word := range words {
-		if !strings.Contains(text, word) {
-			return false
-		}
-	}
-	return true
-}
-
 // formatKeyDisplay turns "ctrl+x" into "Ctrl+X" for display purposes.
 func formatKeyDisplay(key string) string {
 	if strings.HasPrefix(key, "ctrl+") {

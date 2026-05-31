@@ -37,7 +37,7 @@ func (m *mainModel) enterHistory() bool {
 	m.histState = &historyState{
 		picker: NewPicker(entries, func(e history.Entry, words []string) bool {
 			hay := strings.ToLower(e.Command + " " + e.Header + " " + e.File)
-			return matchesAllWords(hay, words)
+			return resolver.MatchesAllWords(hay, words)
 		}),
 		prevInput:  m.textInput.Value(),
 		prevCursor: m.picker.Cursor,

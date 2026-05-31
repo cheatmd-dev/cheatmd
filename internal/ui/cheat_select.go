@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
@@ -80,36 +81,7 @@ func newChainItem(chain chainGroup, cheat *parser.Cheat) cheatItem {
 // matchesQuery reports whether the cheat item matches all search words.
 // Words must be pre-lowercased.
 func (item *cheatItem) matchesQuery(words []string) bool {
-	for _, word := range words {
-		if !item.containsWord(word) {
-			return false
-		}
-	}
-	return true
-}
-
-func (item *cheatItem) containsWord(word string) bool {
-	if strings.Contains(strings.ToLower(item.folder), word) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(item.file), word) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(item.cheat.Header), word) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(item.cheat.Description), word) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(item.cheat.Command), word) {
-		return true
-	}
-	for _, tag := range item.cheat.Tags {
-		if strings.Contains(strings.ToLower(tag), word) {
-			return true
-		}
-	}
-	return false
+	return resolver.MatchesQuery(item.cheat, words)
 }
 
 // buildPathDisplay builds the path display string based on config options.
@@ -280,7 +252,7 @@ func chainMatchesQuery(chain chainGroup, words []string) bool {
 		hay += " " + strings.ToLower(step.Header)
 		hay += " " + strings.ToLower(step.Description)
 	}
-	return matchesAllWords(hay, words)
+	return resolver.MatchesAllWords(hay, words)
 }
 
 func (m *mainModel) nextChainStep(chain chainGroup) *parser.Cheat {

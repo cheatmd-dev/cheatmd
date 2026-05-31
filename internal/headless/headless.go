@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -118,8 +117,8 @@ func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) er
 		return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 	}
 	words := strings.Fields(strings.ToLower(query))
-	matchedCheats := s.filterCheatsByWords(cheats, words)
-	s.Cheat = s.findExactHeaderMatch(matchedCheats, query)
+	matchedCheats := resolver.SearchCheats(cheats, words)
+	s.Cheat = resolver.FindExactHeaderMatch(matchedCheats, query)
 	if s.Cheat != nil {
 		return nil
 	}
@@ -133,24 +132,6 @@ func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) er
 	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 }
 
-func (s *RunnerSession) filterCheatsByWords(cheats []*parser.Cheat, words []string) []*parser.Cheat {
-	var matched []*parser.Cheat
-	for _, c := range cheats {
-		if cheatMatchesQuery(c, words) {
-			matched = append(matched, c)
-		}
-	}
-	return matched
-}
-
-func (s *RunnerSession) findExactHeaderMatch(cheats []*parser.Cheat, query string) *parser.Cheat {
-	for _, mc := range cheats {
-		if strings.EqualFold(mc.Header, query) {
-			return mc
-		}
-	}
-	return nil
-}
 
 // runCommand constructs the final command string, attaches any configured hooks,
 // executes the command on the target shell, and reports the output via JSON-RPC.
@@ -269,44 +250,4 @@ func getExitCode(err error) int {
 		return exitError.ExitCode()
 	}
 	return -1
-}
-
-// cheatMatchesQuery performs a heuristic search across the cheat's metadata for targeting.
-func cheatMatchesQuery(cheat *parser.Cheat, words []string) bool {
-	for _, word := range words {
-		if !wordMatchesCheat(cheat, word) {
-			return false
-		}
-	}
-	return true
-}
-
-func wordMatchesCheat(cheat *parser.Cheat, word string) bool {
-	if matchesBasicMetadata(cheat, word) {
-		return true
-	}
-	return matchesAnyTag(cheat.Tags, word)
-}
-
-func matchesBasicMetadata(cheat *parser.Cheat, word string) bool {
-	folder := strings.ToLower(filepath.Base(cheat.File))
-	file := strings.ToLower(strings.TrimSuffix(filepath.Base(cheat.File), ".md"))
-	header := strings.ToLower(cheat.Header)
-	desc := strings.ToLower(cheat.Description)
-	command := strings.ToLower(cheat.Command)
-
-	return strings.Contains(folder, word) ||
-		strings.Contains(file, word) ||
-		strings.Contains(header, word) ||
-		strings.Contains(desc, word) ||
-		strings.Contains(command, word)
-}
-
-func matchesAnyTag(tags []string, word string) bool {
-	for _, tag := range tags {
-		if strings.Contains(strings.ToLower(tag), word) {
-			return true
-		}
-	}
-	return false
 }

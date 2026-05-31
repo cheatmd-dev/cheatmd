@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
@@ -57,8 +58,7 @@ func (m *mainModel) enterSubstituteSearch() bool {
 	}
 	m.subState = &substituteSearchState{
 		picker: NewPicker(opts, func(opt substituteOption, words []string) bool {
-			hay := strings.ToLower(opt.Display)
-			return matchesAllWords(hay, words)
+			return resolver.MatchesAllWords(strings.ToLower(opt.Display), words)
 		}),
 		prevInput:  m.textInput.Value(),
 		prevCursor: m.picker.Cursor,
