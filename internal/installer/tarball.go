@@ -79,12 +79,13 @@ func extractMarkdownTarball(r io.Reader, subdir, dest string) (int, error) {
 		if !keep {
 			continue
 		}
-		
+
 		if count >= maxFiles {
 			return count, fmt.Errorf("tarball exceeds maximum allowed files (%d)", maxFiles)
 		}
 		if hdr.Size > maxFileSize {
-			return count, fmt.Errorf("tar entry %q exceeds maximum file size (5MB)", hdr.Name)
+			fmt.Fprintf(os.Stderr, "Warning: skipping tar entry %q (exceeds 5MB size limit)\n", hdr.Name)
+			continue
 		}
 		totalBytes += hdr.Size
 		if totalBytes > maxTotalBytes {
