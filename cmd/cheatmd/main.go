@@ -4,7 +4,7 @@ import (
 	"os"
 )
 
-var version = "1.0.0-rc.1"
+var version = "1.0.0-rc.2"
 
 func main() {
 	rootCmd.Version = version
