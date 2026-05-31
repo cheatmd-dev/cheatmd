@@ -41,7 +41,9 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		return nil
 	case "tab":
-		return m.handleVarResolveTab(msg)
+		return m.handleVarResolveTab(msg, 1)
+	case "shift+tab":
+		return m.handleVarResolveTab(msg, -1)
 	case " ":
 		if cmd := m.handleVarResolveSpace(msg); cmd != nil {
 			return cmd
@@ -85,14 +87,38 @@ func (m *mainModel) handleVarResolveNavKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg) tea.Cmd {
-	if m.completePathFromInput() {
+func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg, dir int) tea.Cmd {
+	if m.completePathFromInput(dir) {
 		return func() tea.Msg { return nil } // bypass text input to preserve completion state
 	}
-	if !m.varState.isPromptOnly && m.varState.picker != nil {
-		if opt, ok := m.varState.picker.Selected(); ok {
-			m.textInput.SetValue(opt.Display)
-			m.textInput.CursorEnd()
+	if !m.varState.isPromptOnly && m.varState.picker != nil && len(m.varState.picker.Filtered) > 0 {
+		p := m.varState.picker
+		if opt, ok := p.Selected(); ok {
+			if m.textInput.Value() == opt.Display {
+				if dir > 0 {
+					if p.Cursor >= len(p.Filtered)-1 {
+						p.Cursor = 0
+						p.Offset = 0
+					} else {
+						p.MoveCursor(1)
+					}
+				} else {
+					if p.Cursor <= 0 {
+						p.Cursor = len(p.Filtered) - 1
+						p.Offset = max(0, p.Cursor-9)
+					} else {
+						p.MoveCursor(-1)
+					}
+				}
+			} else if dir < 0 {
+				p.Cursor = len(p.Filtered) - 1
+				p.Offset = max(0, p.Cursor-9)
+			}
+
+			if newOpt, newOk := p.Selected(); newOk {
+				m.textInput.SetValue(newOpt.Display)
+				m.textInput.CursorEnd()
+			}
 			return func() tea.Msg { return nil } // bypass text input
 		}
 	}
@@ -143,7 +169,7 @@ func (m *mainModel) handleVarResolveDefaultKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *mainModel) completePathFromInput() bool {
+func (m *mainModel) completePathFromInput(dir int) bool {
 	if m.varState == nil {
 		return false
 	}
@@ -151,33 +177,55 @@ func (m *mainModel) completePathFromInput() bool {
 	// If path picker is active, this is a tab cycle request
 	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
 		p := m.varState.pathPicker
-		if p.Cursor >= len(p.Filtered)-1 {
-			p.Cursor = 0
-			p.Offset = 0
-		} else {
-			p.MoveCursor(1)
-		}
-
 		if opt, ok := p.Selected(); ok {
 			runes := []rune(m.textInput.Value())
-			newRunes := make([]rune, 0)
-			newRunes = append(newRunes, runes[:m.varState.pathTokenStart]...)
-			newRunes = append(newRunes, []rune(opt.Token)...)
-			newCursor := len(newRunes)
-			if m.varState.pathTokenEnd < len(runes) {
-				newRunes = append(newRunes, runes[m.varState.pathTokenEnd:]...)
+			var currentToken string
+			if m.varState.pathTokenStart >= 0 && m.varState.pathTokenEnd <= len(runes) && m.varState.pathTokenStart <= m.varState.pathTokenEnd {
+				currentToken = string(runes[m.varState.pathTokenStart:m.varState.pathTokenEnd])
 			}
 
-			m.textInput.SetValue(string(newRunes))
-			m.textInput.SetCursor(newCursor)
-			m.varState.pathTokenEnd = newCursor
+			if currentToken == opt.Token {
+				if dir > 0 {
+					if p.Cursor >= len(p.Filtered)-1 {
+						p.Cursor = 0
+						p.Offset = 0
+					} else {
+						p.MoveCursor(1)
+					}
+				} else {
+					if p.Cursor <= 0 {
+						p.Cursor = len(p.Filtered) - 1
+						p.Offset = max(0, p.Cursor-9)
+					} else {
+						p.MoveCursor(-1)
+					}
+				}
+			} else if dir < 0 {
+				p.Cursor = len(p.Filtered) - 1
+				p.Offset = max(0, p.Cursor-9)
+			}
+
+			if newOpt, newOk := p.Selected(); newOk {
+				newRunes := make([]rune, 0)
+				newRunes = append(newRunes, runes[:m.varState.pathTokenStart]...)
+				newRunes = append(newRunes, []rune(newOpt.Token)...)
+				newCursor := len(newRunes)
+				if m.varState.pathTokenEnd < len(runes) {
+					newRunes = append(newRunes, runes[m.varState.pathTokenEnd:]...)
+				}
+
+				m.textInput.SetValue(string(newRunes))
+				m.textInput.SetCursor(newCursor)
+				m.varState.pathTokenEnd = newCursor
+			}
 		}
 		return true
 	}
 
 	value := m.textInput.Value()
 	cursor := m.textInput.Position()
-	if !m.varState.isPromptOnly && !looksPathLikeInput(value, cursor) {
+	forcePath := m.varState.isPromptOnly || (m.varState.picker != nil && len(m.varState.picker.Filtered) == 0)
+	if !forcePath && !looksPathLikeInput(value, cursor) {
 		return false
 	}
 	result, ok := completePathValue(value, cursor)
