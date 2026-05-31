@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/cheatmd-dev/cheatmd/internal/history"
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
@@ -75,6 +76,9 @@ func (m *mainModel) acceptHistory() tea.Cmd {
 		return nil
 	}
 	cheat := findCheatByRef(m.cheatIndex, entry.File, entry.Header)
+	if cheat == nil && m.cheatIndex != nil {
+		cheat = resolver.FindMatchingCheat(m.cheatIndex.Cheats, entry.Command)
+	}
 	if cheat == nil {
 		// Cheat no longer exists. Bail back to cheat select with the command
 		// as a search query so the user has something to act on.
