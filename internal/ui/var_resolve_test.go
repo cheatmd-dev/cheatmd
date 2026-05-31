@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
@@ -18,7 +19,7 @@ func TestVarResolveArrowKeysMoveSelection(t *testing.T) {
 	m.varState = &varResolveState{
 		isPromptOnly: false,
 		picker: NewPicker(items, func(opt FilteredOption, words []string) bool {
-			return matchesAllWords(opt.SearchText, words)
+			return resolver.MatchesAllWords(opt.SearchText, words)
 		}),
 	}
 

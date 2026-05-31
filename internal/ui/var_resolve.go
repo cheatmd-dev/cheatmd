@@ -282,7 +282,7 @@ func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
 
 		if m.varState.picker == nil {
 			m.varState.picker = NewPicker(items, func(opt FilteredOption, words []string) bool {
-				return matchesAllWords(opt.SearchText, words)
+				return resolver.MatchesAllWords(opt.SearchText, words)
 			})
 		} else {
 			m.varState.picker.SetItems(items)
