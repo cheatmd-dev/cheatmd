@@ -179,7 +179,6 @@ func configureViper() {
 		viper.AddConfigPath(filepath.Join(home, ".config", "cheatmd"))
 		viper.AddConfigPath(home)
 	}
-	viper.AddConfigPath(".")
 
 	viper.SetEnvPrefix("CHEATMD")
 	viper.AutomaticEnv()
@@ -229,12 +228,18 @@ func WriteDefaultConfig(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("config already exists at %s", path)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	content := withCheatsPath(string(defaultConfigTemplate), DefaultCheatsDir())
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("write config: %w", err)
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(content), 0o600); err != nil {
+		return fmt.Errorf("write temp config: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("rename config: %w", err)
 	}
 	return nil
 }
