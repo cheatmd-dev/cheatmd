@@ -9,7 +9,7 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/cheatmd-dev/cheatmd/pkg/httputil"
+	"github.com/cheatmd-dev/cheatmd/internal/httputil"
 	"io"
 	"strings"
 	"time"
