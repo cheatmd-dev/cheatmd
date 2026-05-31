@@ -24,8 +24,8 @@ fi
 	}
 
 	for _, v := range cheat.Vars {
-		if v.Name == "X" && v.Condition != "B" {
-			t.Errorf("expected var X condition to be B, got %s", v.Condition)
+		if v.Name == "X" && v.Condition != "A && B" {
+			t.Errorf("expected var X condition to be A && B, got %s", v.Condition)
 		}
 		if v.Name == "Y" && v.Condition != "A" {
 			t.Errorf("expected var Y condition to be A, got %s", v.Condition)

@@ -14,7 +14,7 @@ import (
 func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []ParseError {
 	lines := joinContinuationLines(strings.Split(content, "\n"), startLine)
 
-	var currentCondition string
+	var conditionStack []string
 	var errs []ParseError
 	ifDepth := 0
 	ifLines := []int{}
@@ -25,6 +25,15 @@ func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []P
 		if line == "" || line[0] == '#' {
 			continue
 		}
+
+		// Calculate currentCondition from the stack
+		var conds []string
+		for _, c := range conditionStack {
+			if c != "" {
+				conds = append(conds, c)
+			}
+		}
+		currentCondition := strings.Join(conds, " && ")
 
 		keyword, rest := splitFirstWord(line)
 		switch keyword {
@@ -37,13 +46,14 @@ func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []P
 			} else {
 				ifDepth--
 				ifLines = ifLines[:len(ifLines)-1]
+				conditionStack = conditionStack[:len(conditionStack)-1]
 			}
-			currentCondition = ""
 		case "if":
 			if rest == "" {
 				errs = append(errs, ParseError{File: path, Line: lineNo, Message: "`if` requires a condition"})
+				conditionStack = append(conditionStack, "")
 			} else {
-				currentCondition = rest
+				conditionStack = append(conditionStack, rest)
 			}
 			ifDepth++
 			ifLines = append(ifLines, lineNo)
