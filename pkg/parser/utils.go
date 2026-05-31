@@ -98,17 +98,21 @@ func SplitLines(s string) []string {
 			s = s[idx+1:]
 		}
 
-		start, end := 0, len(line)
-		for start < end && (line[start] == ' ' || line[start] == '\t' || line[start] == '\r') {
-			start++
-		}
-		for end > start && (line[end-1] == ' ' || line[end-1] == '\t' || line[end-1] == '\r') {
-			end--
-		}
-		if start < end {
-			lines = append(lines, line[start:end])
+		if trimmed := trimWhitespace(line); trimmed != "" {
+			lines = append(lines, trimmed)
 		}
 	}
 
 	return lines
+}
+
+func trimWhitespace(line string) string {
+	start, end := 0, len(line)
+	for start < end && (line[start] == ' ' || line[start] == '\t' || line[start] == '\r') {
+		start++
+	}
+	for end > start && (line[end-1] == ' ' || line[end-1] == '\t' || line[end-1] == '\r') {
+		end--
+	}
+	return line[start:end]
 }

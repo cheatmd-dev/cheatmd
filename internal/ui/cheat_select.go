@@ -14,6 +14,7 @@ import (
 	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
+	"github.com/mattn/go-runewidth"
 )
 
 // ============================================================================
@@ -113,8 +114,8 @@ func (item *cheatItem) containsWord(word string) bool {
 
 // buildPathDisplay builds the path display string based on config options.
 func buildPathDisplay(folder, file string) string {
-	showFolder := config.GetShowFolder()
-	showFile := config.GetShowFile()
+	showFolder := config.Get().ShowFolder
+	showFile := config.Get().ShowFile
 
 	if showFolder && showFile {
 		return folder + "/" + file
@@ -141,10 +142,10 @@ type columnConfig struct {
 // loadColumnConfig loads column configuration from config.
 func loadColumnConfig() columnConfig {
 	return columnConfig{
-		headerWidth: config.GetColumnHeader(),
-		descWidth:   config.GetColumnDesc(),
-		cmdWidth:    config.GetColumnCommand(),
-		gap:         config.GetColumnGap(),
+		headerWidth: config.Get().Columns.Header,
+		descWidth:   config.Get().Columns.Desc,
+		cmdWidth:    config.Get().Columns.Command,
+		gap:         config.Get().Columns.Gap,
 	}
 }
 
@@ -211,19 +212,19 @@ func (m *mainModel) handleCheatSelectKey(msg tea.KeyMsg) tea.Cmd {
 		if m.picker.HandleKey(msg) {
 			return nil
 		}
-		if msg.String() == config.GetKeyOpen() {
+		if msg.String() == config.Get().KeyOpen {
 			if opt, ok := m.picker.Selected(); ok {
 				openFileInViewer(opt.cheat.File)
 			}
 		}
-		if msg.String() == config.GetKeyPreview() {
+		if msg.String() == config.Get().KeyPreview {
 			if opt, ok := m.picker.Selected(); ok {
 				if m.enterPreview(opt.cheat) {
 					return tea.ClearScreen
 				}
 			}
 		}
-		if msg.String() == config.GetKeyHistory() {
+		if msg.String() == config.Get().KeyHistory {
 			if m.enterHistory() {
 				return tea.ClearScreen
 			}
@@ -314,7 +315,7 @@ func (m *mainModel) renderCheatSelect() string {
 
 	inputLines := 3 // divider + info + input
 
-	previewHeight := config.GetPreviewHeight()
+	previewHeight := config.Get().PreviewHeight
 	if previewHeight < 1 {
 		previewHeight = 6
 	}
@@ -418,7 +419,7 @@ func (m *mainModel) renderListItem(item cheatItem, selected bool, gap string) st
 	headerRendered := m.renderHeaderColumn(pathPart, headerPart, pStyle, hStyle, selected)
 
 	desc := truncateString(firstLine(item.cheat.Description), m.columns.descWidth)
-	descPadded := fmt.Sprintf("%-*s", m.columns.descWidth, desc)
+	descPadded := runewidth.FillRight(desc, m.columns.descWidth)
 
 	maxCmd := m.calculateCommandWidth()
 	cmd := truncateString(firstLine(item.cheat.Command), maxCmd)
@@ -449,23 +450,29 @@ func (m *mainModel) getItemStyles(selected bool) (path, header, desc, cmd lipglo
 
 // renderHeaderColumn renders the path+header column with proper truncation.
 func (m *mainModel) renderHeaderColumn(pathPart, headerPart string, pStyle, hStyle lipgloss.Style, selected bool) string {
-	var fullHeader string
-	if pathPart != "" {
-		fullHeader = pathPart + " " + headerPart
-	} else {
-		fullHeader = headerPart
+	fullWidth := runewidth.StringWidth(pathPart)
+	if pathPart != "" && headerPart != "" {
+		fullWidth += 1 // space
 	}
+	fullWidth += runewidth.StringWidth(headerPart)
 
-	if m.columns.headerWidth > 1 && len(fullHeader) > m.columns.headerWidth {
-		fullHeader = fullHeader[:m.columns.headerWidth-1] + "…"
-		if pathPart != "" && len(pathPart) >= len(fullHeader) {
-			pathPart = fullHeader
+	if m.columns.headerWidth > 1 && fullWidth > m.columns.headerWidth {
+		if pathPart != "" && runewidth.StringWidth(pathPart) >= m.columns.headerWidth {
+			pathPart = runewidth.Truncate(pathPart, m.columns.headerWidth, "…")
 			headerPart = ""
 		} else if pathPart != "" {
-			headerPart = fullHeader[len(pathPart)+1:]
+			avail := m.columns.headerWidth - runewidth.StringWidth(pathPart) - 1
+			headerPart = runewidth.Truncate(headerPart, avail, "…")
 		} else {
-			headerPart = fullHeader
+			headerPart = runewidth.Truncate(headerPart, m.columns.headerWidth, "…")
 		}
+
+		// Recalculate width
+		fullWidth = runewidth.StringWidth(pathPart)
+		if pathPart != "" && headerPart != "" {
+			fullWidth += 1
+		}
+		fullWidth += runewidth.StringWidth(headerPart)
 	}
 
 	var rendered string
@@ -477,7 +484,7 @@ func (m *mainModel) renderHeaderColumn(pathPart, headerPart string, pStyle, hSty
 		rendered = hStyle.Render(headerPart)
 	}
 
-	if padding := m.columns.headerWidth - len(fullHeader); padding > 0 {
+	if padding := m.columns.headerWidth - fullWidth; padding > 0 {
 		padStr := strings.Repeat(" ", padding)
 		if selected {
 			padStr = styles.Selected.Render(padStr)
@@ -507,7 +514,7 @@ func (m *mainModel) renderInput(width int) string {
 	b.WriteString("\n")
 	b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d/%d", len(m.picker.Filtered), len(m.cheats))))
 	b.WriteString(" • ")
-	keyOpen := config.GetKeyOpen()
+	keyOpen := config.Get().KeyOpen
 	if keyOpen == "" {
 		keyOpen = "ctrl+o"
 	}

@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cheatmd-dev/cheatmd/internal/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
-	"github.com/cheatmd-dev/cheatmd/pkg/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
@@ -25,11 +25,11 @@ type historyState struct {
 // Returns true on success, false if there are no entries or history is
 // otherwise unavailable.
 func (m *mainModel) enterHistory() bool {
-	path, err := history.DefaultPath(config.GetHistoryFile())
+	path, err := history.DefaultPath(config.Get().HistoryFile)
 	if err != nil {
 		return false
 	}
-	entries, err := history.Load(path, config.GetHistoryMax())
+	entries, err := history.Load(path, config.Get().HistoryMax)
 	if err != nil || len(entries) == 0 {
 		return false
 	}
@@ -130,7 +130,7 @@ func (m *mainModel) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd := m.handleHistoryKey(msg); cmd != nil {
 			return m, cmd
 		}
-		if isHistoryNavKey(msg.String()) {
+		if isOverlayNavKey(msg.String()) {
 			return m, nil
 		}
 	}
@@ -142,16 +142,6 @@ func (m *mainModel) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.filterHistoryEntries()
 	}
 	return m, tiCmd
-}
-
-// isHistoryNavKey mirrors isSubstituteNavKey: navigation/accept/cancel keys
-// the overlay swallows rather than passing to the text input.
-func isHistoryNavKey(key string) bool {
-	switch key {
-	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
-		return true
-	}
-	return false
 }
 
 // renderHistory renders the history overlay using the shared overlay layout.

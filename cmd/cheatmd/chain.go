@@ -23,8 +23,8 @@ var chainResetCmd = &cobra.Command{
 
 func runChainReset(cmd *cobra.Command, args []string) error {
 	root := "."
-	if config.GetPath() != "." {
-		root = config.GetPath()
+	if config.Get().Path != "." {
+		root = config.Get().Path
 	}
 	absRoot, err := filepath.Abs(root)
 	if err != nil {

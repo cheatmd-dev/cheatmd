@@ -1,13 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
@@ -85,7 +84,6 @@ func (m *mainModel) startVarResolutionInternal() {
 // command to run a shell command to get options.
 func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	if m.varState == nil || m.varState.currentIdx >= len(m.varState.vars) {
-		// All variables resolved - copy to scope and quit.
 		if m.varState != nil {
 			for _, vs := range m.varState.vars {
 				if vs.resolved {
@@ -97,26 +95,11 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 
 	vs := &m.varState.vars[m.varState.currentIdx]
+	scope := m.currentVarScope()
 
-	scope := make(map[string]string)
-	for _, v := range m.varState.vars {
-		if v.resolved {
-			scope[v.def.Name] = v.value
-		}
-	}
-
-	// Select the matching variant based on conditions.
 	selectedDef := selectVariant(vs.variants, scope)
 	if selectedDef == nil {
-		allConditional := true
-		for _, v := range vs.variants {
-			if v.Condition == "" {
-				allConditional = false
-				break
-			}
-		}
-		if allConditional && len(vs.variants) > 0 {
-			// All variants conditional and none matched - skip.
+		if allVariantsConditional(vs.variants) {
 			vs.resolved = true
 			vs.value = ""
 			m.varState.currentIdx++
@@ -126,9 +109,7 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 	vs.def = *selectedDef
 
-	// Auto-continue if the prefill is good enough.
-	autoContinue := config.GetAutoContinue()
-	if autoContinue && vs.prefill != "" && !vs.skipAutoCont {
+	if config.Get().AutoContinue && vs.prefill != "" && !vs.skipAutoCont {
 		vs.value = vs.prefill
 		vs.resolved = true
 		m.varState.currentIdx++
@@ -136,43 +117,74 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 	}
 
 	m.varState.customHeader = extractCustomHeader(vs.def.Args)
-	m.varState.selectOpts = parseSelectorOpts(vs.def.Args)
+	m.varState.selectOpts = resolver.ParseSelectorOpts(vs.def.Args)
 
-	// Literal value: substitute scope vars and either show or auto-resolve.
 	if vs.def.Literal != "" {
-		result := executor.SubstituteVars(vs.def.Literal, scope, "dollar")
-		if vs.skipAutoCont {
-			m.varState.isPromptOnly = true
-			m.varState.options = nil
-			if m.varState.picker != nil {
-				m.varState.picker.SetItems(nil)
-			}
-			m.textInput.SetValue(result)
-			m.textInput.CursorEnd()
-			return nil
-		}
-		vs.value = result
-		vs.resolved = true
-		m.varState.currentIdx++
-		return m.prepareCurrentVar()
+		return m.prepareLiteralVar(vs, scope)
 	}
 
-	// Prompt only.
 	if strings.TrimSpace(vs.def.Shell) == "" {
+		return m.preparePromptVar(vs)
+	}
+
+	return m.prepareShellVar(vs, scope)
+}
+
+func (m *mainModel) currentVarScope() map[string]string {
+	scope := make(map[string]string)
+	for _, v := range m.varState.vars {
+		if v.resolved {
+			scope[v.def.Name] = v.value
+		}
+	}
+	return scope
+}
+
+func allVariantsConditional(variants []parser.VarDef) bool {
+	if len(variants) == 0 {
+		return false
+	}
+	for _, v := range variants {
+		if v.Condition == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *mainModel) prepareLiteralVar(vs *varState, scope map[string]string) tea.Cmd {
+	result := executor.SubstituteVars(vs.def.Literal, scope, config.Get().VarSyntax)
+	if vs.skipAutoCont {
 		m.varState.isPromptOnly = true
 		m.varState.options = nil
 		if m.varState.picker != nil {
 			m.varState.picker.SetItems(nil)
 		}
-		if vs.prefill != "" {
-			m.textInput.SetValue(vs.prefill)
-			m.textInput.CursorEnd()
-		}
+		m.textInput.SetValue(result)
+		m.textInput.CursorEnd()
 		return nil
 	}
+	vs.value = result
+	vs.resolved = true
+	m.varState.currentIdx++
+	return m.prepareCurrentVar()
+}
 
-	// Run shell command asynchronously to get options.
-	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, "dollar")
+func (m *mainModel) preparePromptVar(vs *varState) tea.Cmd {
+	m.varState.isPromptOnly = true
+	m.varState.options = nil
+	if m.varState.picker != nil {
+		m.varState.picker.SetItems(nil)
+	}
+	if vs.prefill != "" {
+		m.textInput.SetValue(vs.prefill)
+		m.textInput.CursorEnd()
+	}
+	return nil
+}
+
+func (m *mainModel) prepareShellVar(vs *varState, scope map[string]string) tea.Cmd {
+	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, config.Get().VarSyntax)
 	return func() tea.Msg {
 		output, err := m.executor.RunShell(shellCmd)
 		if err != nil {
@@ -181,43 +193,6 @@ func (m *mainModel) prepareCurrentVar() tea.Cmd {
 		lines := parser.SplitLines(output)
 		return shellResultMsg{lines, nil}
 	}
-}
-
-// parseSelectorOpts parses selector options from args.
-func parseSelectorOpts(selectorArgs string) SelectOptions {
-	opts := SelectOptions{}
-	if selectorArgs == "" {
-		return opts
-	}
-
-	args := parseShellArgs(selectorArgs)
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--delimiter":
-			if i+1 < len(args) {
-				opts.Delimiter = args[i+1]
-				i++
-			}
-		case "--column":
-			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.Column)
-				i++
-			}
-		case "--select-column":
-			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.SelectColumn)
-				i++
-			}
-		case "--map":
-			if i+1 < len(args) {
-				opts.MapCmd = args[i+1]
-				i++
-			}
-		case "--multi":
-			opts.Multi = true
-		}
-	}
-	return opts
 }
 
 // ============================================================================
@@ -330,371 +305,4 @@ func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-// handleVarResolveKey processes keyboard input during variable resolution.
-func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.String() {
-	case "ctrl+c":
-		m.quitting = true
-		m.selected = nil
-		return tea.Quit
-	case "esc":
-		// Go back to previous var or cheat selection.
-		if m.varState.currentIdx > 0 {
-			m.varState.currentIdx--
-			vs := &m.varState.vars[m.varState.currentIdx]
-			vs.resolved = false
-			vs.value = ""
-			vs.skipAutoCont = true
-			m.textInput.SetValue("")
-			m.picker.Cursor = 0
-			m.picker.Offset = 0
-			return m.prepareCurrentVar()
-		}
-		m.phase = phaseCheatSelect
-		m.varState = nil
-		m.selected = nil
-		m.textInput.SetValue(m.lastQuery)
-		m.textInput.Placeholder = "Type to search..."
-		m.filterCheats()
-		m.picker.Cursor = 0
-		m.picker.Offset = 0
-		return nil
-	case "enter":
-		return m.acceptVarValue(false)
-	case "alt+enter", "ctrl+j":
-		return m.acceptVarValue(true)
-	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
-		if !m.varState.isPromptOnly && m.varState.picker != nil {
-			m.varState.picker.HandleKey(msg)
-		}
-		return nil
-	case "tab":
-		if m.completePathFromInput() {
-			return nil
-		}
-		if !m.varState.isPromptOnly && m.varState.picker != nil {
-			if opt, ok := m.varState.picker.Selected(); ok {
-				m.textInput.SetValue(opt.Display)
-				m.textInput.CursorEnd()
-			}
-		}
-	case " ":
-		if m.varState.selectOpts.Multi && !m.varState.isPromptOnly && m.varState.picker != nil {
-			if opt, ok := m.varState.picker.Selected(); ok {
-				vs := &m.varState.vars[m.varState.currentIdx]
-				original := opt.Original
-				if vs.multiSelectedSet[original] {
-					vs.multiSelectedSet[original] = false
-					// Remove from multiSelected list
-					for i, val := range vs.multiSelected {
-						if val == original {
-							vs.multiSelected = append(vs.multiSelected[:i], vs.multiSelected[i+1:]...)
-							break
-						}
-					}
-				} else {
-					vs.multiSelectedSet[original] = true
-					vs.multiSelected = append(vs.multiSelected, original)
-				}
-				// Don't pass space to text input, just return nil to re-render
-				return nil
-			}
-		}
-	default:
-		if msg.String() == config.GetKeyOpen() {
-			if m.varState != nil && m.varState.cheat != nil {
-				openFileInViewer(m.varState.cheat.File)
-			}
-		}
-		if msg.String() == config.GetKeySubstitute() {
-			if m.enterSubstituteSearch() {
-				return tea.Batch(tea.ClearScreen, textinput.Blink)
-			}
-		}
-		if msg.String() == config.GetKeyPreview() {
-			if m.varState != nil && m.varState.cheat != nil {
-				if m.enterPreview(m.varState.cheat) {
-					return tea.ClearScreen
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (m *mainModel) completePathFromInput() bool {
-	if m.varState == nil {
-		return false
-	}
-	value := m.textInput.Value()
-	cursor := m.textInput.Position()
-	if !m.varState.isPromptOnly && !looksPathLikeInput(value, cursor) {
-		return false
-	}
-	result, ok := completePathValue(value, cursor)
-	if !ok {
-		m.clearPathCompletions()
-		return false
-	}
-
-	m.textInput.SetValue(result.Value)
-	m.textInput.SetCursor(result.Cursor)
-
-	show := len(result.Candidates) > 1
-	m.varState.pathCompletions = result.Candidates
-	m.varState.showPathCompletions = show
-	if !m.varState.isPromptOnly && m.varState.picker != nil {
-		m.varState.picker.Filter(m.textInput.Value())
-	}
-	return true
-}
-
-func looksPathLikeInput(value string, cursor int) bool {
-	runes := []rune(value)
-	if cursor < 0 || cursor > len(runes) {
-		cursor = len(runes)
-	}
-	start := pathTokenStart(runes, cursor)
-	token := strings.TrimLeft(string(runes[start:cursor]), `"'`)
-	return strings.HasPrefix(token, "/") ||
-		strings.HasPrefix(token, "./") ||
-		strings.HasPrefix(token, "../") ||
-		strings.HasPrefix(token, "~/") ||
-		strings.HasPrefix(token, "$") ||
-		strings.Contains(token, "/")
-}
-
-func (m *mainModel) clearPathCompletions() {
-	if m.varState == nil {
-		return
-	}
-	m.varState.pathCompletions = nil
-	m.varState.showPathCompletions = false
-}
-
-// acceptVarValue accepts the current value and moves to next variable.
-func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
-	if m.varState == nil {
-		return tea.Quit
-	}
-
-	vs := &m.varState.vars[m.varState.currentIdx]
-	var value string
-
-	if bypassSelection || m.varState.isPromptOnly {
-		value = m.textInput.Value()
-	} else if m.varState.selectOpts.Multi && len(vs.multiSelected) > 0 {
-		var mapped []string
-		for _, selected := range vs.multiSelected {
-			if m.varState.selectOpts.MapCmd != "" {
-				selected = applyMapTransform(selected, m.varState.selectOpts)
-			}
-			mapped = append(mapped, selected)
-		}
-		delim := m.varState.selectOpts.Delimiter
-		if delim == "" {
-			delim = ","
-		}
-		value = strings.Join(mapped, delim)
-	} else if m.varState.picker != nil {
-		if opt, ok := m.varState.picker.Selected(); ok {
-			selected := opt.Original
-			if m.varState.selectOpts.MapCmd != "" {
-				selected = applyMapTransform(selected, m.varState.selectOpts)
-			}
-			value = selected
-		} else {
-			value = m.textInput.Value()
-		}
-	} else {
-		value = m.textInput.Value()
-	}
-
-	vs.value = value
-	vs.resolved = true
-	m.varState.currentIdx++
-
-	m.textInput.SetValue("")
-	m.clearPathCompletions()
-	m.picker.Cursor = 0
-	m.picker.Offset = 0
-
-	return m.prepareCurrentVar()
-}
-
-// ============================================================================
-// Render
-// ============================================================================
-
-// renderVarResolve renders the variable resolution view.
-func (m *mainModel) renderVarResolve() string {
-	if m.varState == nil {
-		return ""
-	}
-
-	width := max(m.width, 80)
-	height := m.height
-	if height < 1 {
-		height = 24
-	}
-
-	b := getBuilder()
-	defer putBuilder(b)
-
-	header := m.renderVarHeader(width)
-	headerLines := countLines(header)
-
-	availableForBottom := max(height-headerLines, 5)
-	bottom := m.renderVarBottomWithHeight(width, availableForBottom)
-	bottomLines := countLines(bottom)
-
-	padding := max(height-headerLines-bottomLines, 0)
-
-	b.WriteString(header)
-	b.WriteString(strings.Repeat("\n", padding))
-	b.WriteString(bottom)
-
-	return b.String()
-}
-
-// renderVarBottomWithHeight renders the options list and input with a max height.
-func (m *mainModel) renderVarBottomWithHeight(width int, maxHeight int) string {
-	b := getBuilder()
-	defer putBuilder(b)
-
-	b.WriteString(styles.Divider.Render(strings.Repeat("─", width)))
-	b.WriteString("\n")
-
-	// Fixed lines: top divider(1) + bottom divider(1) + info line(1) + input(1) = 4
-	fixedLines := 4
-
-	availableForList := max(maxHeight-fixedLines, 1)
-
-	if m.varState.showPathCompletions && len(m.varState.pathCompletions) > 0 {
-		listHeight := min(availableForList, min(10, len(m.varState.pathCompletions)))
-		for i := 0; i < listHeight; i++ {
-			candidate := m.varState.pathCompletions[i]
-			b.WriteString("  ")
-			b.WriteString(styles.Command.Render(candidate.Display))
-			b.WriteString("\n")
-		}
-	} else if !m.varState.isPromptOnly && m.varState.picker != nil && len(m.varState.picker.Filtered) > 0 {
-		listHeight := min(availableForList, min(10, len(m.varState.picker.Filtered)))
-		start, end := scrollWindow(m.varState.picker.Cursor, len(m.varState.picker.Filtered), listHeight, &m.varState.picker.Offset)
-
-		for i := start; i < end; i++ {
-			opt := m.varState.picker.Filtered[i]
-
-			checkbox := ""
-			if m.varState.selectOpts.Multi {
-				vs := &m.varState.vars[m.varState.currentIdx]
-				if vs.multiSelectedSet[opt.Original] {
-					checkbox = styles.Command.Render("[x] ")
-				} else {
-					checkbox = styles.Dim.Render("[ ] ")
-				}
-			}
-
-			if i == m.varState.picker.Cursor {
-				b.WriteString(styles.Cursor.Render("▶ "))
-				b.WriteString(checkbox)
-				b.WriteString(styles.Selected.Render(styles.Command.Render(opt.Display)))
-			} else {
-				b.WriteString("  ")
-				b.WriteString(checkbox)
-				b.WriteString(styles.Command.Render(opt.Display))
-			}
-			b.WriteString("\n")
-		}
-	}
-
-	b.WriteString(styles.Divider.Render(strings.Repeat("─", width)))
-	b.WriteString("\n")
-
-	if m.varState.showPathCompletions && len(m.varState.pathCompletions) > 0 {
-		b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d path matches", len(m.varState.pathCompletions))))
-		b.WriteString(" • ")
-	} else if !m.varState.isPromptOnly && m.varState.picker != nil && len(m.varState.picker.Filtered) > 0 {
-		b.WriteString(styles.Dim.Render(fmt.Sprintf("  %d options", len(m.varState.picker.Filtered))))
-		b.WriteString(" • ")
-	}
-	b.WriteString(styles.Dim.Render("ESC back"))
-	if m.varState.selectOpts.Multi {
-		b.WriteString(" • ")
-		b.WriteString(styles.Dim.Render("Space toggle"))
-	}
-	b.WriteString(" • ")
-	b.WriteString(styles.Dim.Render("Enter accept"))
-	if !m.varState.isPromptOnly {
-		b.WriteString(" • ")
-		b.WriteString(styles.Dim.Render("Alt+Enter bypass"))
-	}
-	b.WriteString("\n")
-	b.WriteString(m.textInput.View())
-
-	return b.String()
-}
-
-// renderVarHeader renders the progress header for variable resolution.
-func (m *mainModel) renderVarHeader(width int) string {
-	if m.varState == nil {
-		return ""
-	}
-
-	b := getBuilder()
-	defer putBuilder(b)
-
-	progressCmd := m.varState.cheat.Command
-	for i, vs := range m.varState.vars {
-		if vs.resolved {
-			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Header.Render(vs.value), config.GetVarSyntax())
-		} else if i == m.varState.currentIdx {
-			displayStr := formatVarName(m.varState.cheat.Command, vs.def.Name)
-			progressCmd = executor.ReplaceVar(progressCmd, vs.def.Name, styles.Cursor.Render(displayStr), config.GetVarSyntax())
-		}
-	}
-	b.WriteString(progressCmd)
-	b.WriteString("\n")
-
-	for i, vs := range m.varState.vars {
-		displayStr := formatVarName(m.varState.cheat.Command, vs.def.Name)
-		if vs.resolved {
-			b.WriteString(styles.Command.Render("✓"))
-			b.WriteString(" ")
-			b.WriteString(styles.Dim.Render(displayStr))
-			b.WriteString(" = ")
-			b.WriteString(styles.Header.Render(vs.value))
-		} else if i == m.varState.currentIdx {
-			b.WriteString(styles.Cursor.Render("▶ " + displayStr))
-		} else {
-			b.WriteString(styles.Dim.Render("○ " + displayStr))
-		}
-		b.WriteString("\n")
-	}
-
-	if m.varState.customHeader != "" {
-		b.WriteString("\n")
-		b.WriteString(styles.Header.Render(m.varState.customHeader))
-		b.WriteString("\n")
-	}
-
-	b.WriteString(styles.Divider.Render(strings.Repeat("─", width)))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-// formatVarName returns the variable name formatted according to how it appears in the command,
-// or defaults based on the syntax config.
-func formatVarName(cmd string, name string) string {
-	if config.GetVarSyntax() == "angle" {
-		return "<" + name + ">"
-	} else if config.GetVarSyntax() == "both" {
-		if strings.Contains(cmd, "<"+name+">") {
-			return "<" + name + ">"
-		}
-	}
-	return "$" + name
 }

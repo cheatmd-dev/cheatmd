@@ -53,14 +53,14 @@ func DefaultStyles() *StyleManager {
 // LoadFromConfig updates styles based on configuration
 func (s *StyleManager) LoadFromConfig() {
 	// Get colors from config
-	headerColor := parseANSIColor(config.GetColorHeader())
-	descColor := parseANSIColor(config.GetColorDesc())
-	cmdColor := parseANSIColor(config.GetColorCommand())
-	pathColor := parseANSIColor(config.GetColorPath())
-	borderColor := lipgloss.Color(config.GetColorBorder())
-	cursorColor := lipgloss.Color(config.GetColorCursor())
-	selectedBg := lipgloss.Color(config.GetColorSelected())
-	dimColor := lipgloss.Color(config.GetColorDim())
+	headerColor := parseANSIColor(config.Get().Colors.Header)
+	descColor := parseANSIColor(config.Get().Colors.Desc)
+	cmdColor := parseANSIColor(config.Get().Colors.Command)
+	pathColor := parseANSIColor(config.Get().Colors.Path)
+	borderColor := lipgloss.Color(config.Get().Colors.Border)
+	cursorColor := lipgloss.Color(config.Get().Colors.Cursor)
+	selectedBg := lipgloss.Color(config.Get().Colors.Selected)
+	dimColor := lipgloss.Color(config.Get().Colors.Dim)
 
 	// List view styles
 	s.Header = lipgloss.NewStyle().Foreground(headerColor)

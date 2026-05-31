@@ -29,7 +29,7 @@ func (m *mainModel) updateSubstituteSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// If the key was a navigation/accept/cancel key we already handled it;
 		// otherwise fall through and let the text input absorb it.
-		if isSubstituteNavKey(msg.String()) {
+		if isOverlayNavKey(msg.String()) {
 			return m, nil
 		}
 	}
@@ -43,21 +43,11 @@ func (m *mainModel) updateSubstituteSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tiCmd
 }
 
-// isSubstituteNavKey reports whether key is a navigation/accept/cancel key
-// that the overlay handles directly (rather than passing to the text input).
-func isSubstituteNavKey(key string) bool {
-	switch key {
-	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
-		return true
-	}
-	return false
-}
-
 // enterSubstituteSearch transitions from phaseVarResolve into the substitute
 // search overlay. Returns true if the transition happened; false if disabled
 // or there are no sources to show.
 func (m *mainModel) enterSubstituteSearch() bool {
-	sources := config.GetSubstituteSources()
+	sources := config.Get().SubstituteSources
 	if len(sources) == 0 {
 		return false
 	}

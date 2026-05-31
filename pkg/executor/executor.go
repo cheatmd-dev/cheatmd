@@ -94,7 +94,7 @@ type Executor struct {
 func NewExecutor(index *parser.CheatIndex) *Executor {
 	return &Executor{
 		index:     index,
-		shell:     config.GetShell(),
+		shell:     config.Get().Shell,
 		clipboard: &systemClipboard{},
 	}
 }
@@ -161,7 +161,7 @@ func (e *Executor) Execute(command string) error {
 
 // BuildFinalCommand substitutes all variables in a cheat's command
 func (e *Executor) BuildFinalCommand(cheat *parser.Cheat) string {
-	result := SubstituteVars(cheat.Command, cheat.Scope, config.GetVarSyntax())
+	result := SubstituteVars(cheat.Command, cheat.Scope, config.Get().VarSyntax)
 
 	// Handle escaped dollar signs
 	result = strings.ReplaceAll(result, "\\$", "$")
@@ -205,7 +205,7 @@ const (
 
 // Output handles command output based on the configured mode
 func (e *Executor) Output(command string) error {
-	mode := OutputMode(config.GetOutput())
+	mode := OutputMode(config.Get().Output)
 	return e.OutputWithMode(command, mode)
 }
 

@@ -103,16 +103,7 @@ func parseFilesParallel(files []string) []parseResult {
 					localParser.index = NewCheatIndex()
 					localParser.parseLines(path, data)
 					localCheats = append(localCheats, localParser.index.Cheats...)
-					for name, mod := range localParser.index.Modules {
-						if existing, ok := localModules[name]; ok {
-							localDuplicates = append(localDuplicates, DuplicateExport{
-								Name:  name,
-								File1: existing.File,
-								File2: mod.File,
-							})
-						}
-						localModules[name] = mod
-					}
+					localModules = mergeModules(localModules, &localDuplicates, localParser.index.Modules)
 				}
 			}
 			resultChan <- parseResult{cheats: localCheats, modules: localModules, duplicates: localDuplicates, errors: localParser.index.Errors}
@@ -139,19 +130,7 @@ func (p *Parser) mergeResults(results []parseResult) {
 		// Carry forward any duplicates detected within a single worker
 		p.index.Duplicates = append(p.index.Duplicates, r.duplicates...)
 		p.index.Errors = append(p.index.Errors, r.errors...)
-		for name, mod := range r.modules {
-			if p.index.Modules == nil {
-				p.index.Modules = make(map[string]*Module)
-			}
-			if existing, ok := p.index.Modules[name]; ok {
-				p.index.Duplicates = append(p.index.Duplicates, DuplicateExport{
-					Name:  name,
-					File1: existing.File,
-					File2: mod.File,
-				})
-			}
-			p.index.Modules[name] = mod
-		}
+		p.index.Modules = mergeModules(p.index.Modules, &p.index.Duplicates, r.modules)
 	}
 	p.index.Cheats = totalCheats
 	for _, c := range totalCheats {
@@ -162,6 +141,23 @@ func (p *Parser) mergeResults(results []parseResult) {
 			p.index.ChainMaxSteps[c.ChainName] = c.ChainStep
 		}
 	}
+}
+
+func mergeModules(target map[string]*Module, duplicates *[]DuplicateExport, source map[string]*Module) map[string]*Module {
+	if target == nil {
+		target = make(map[string]*Module)
+	}
+	for name, mod := range source {
+		if existing, ok := target[name]; ok {
+			*duplicates = append(*duplicates, DuplicateExport{
+				Name:  name,
+				File1: existing.File,
+				File2: mod.File,
+			})
+		}
+		target[name] = mod
+	}
+	return target
 }
 
 // ParseSingleFile parses a single markdown file
@@ -305,96 +301,114 @@ func countNewlines(b []byte) int {
 	return bytes.Count(b, []byte{'\n'})
 }
 
-// parseLine processes a single line (as bytes, no allocation)
 func (p *Parser) parseLine(path string, line []byte, s *parseState) {
-	// Fast path: inside code block - just accumulate
 	if s.inCodeBlock {
-		if len(line) == 3 && line[0] == '`' && line[1] == '`' && line[2] == '`' {
-			s.inCodeBlock = false
-			content := trimSpaceBytes(s.codeBlockBuf)
-			if len(content) > 0 {
-				s.pendingCodeBlocks = append(s.pendingCodeBlocks, codeBlock{
-					lang:        s.codeBlockLang,
-					content:     string(content),
-					description: s.codeBlockDesc,
-					startLine:   s.codeBlockStart,
-					endLine:     s.lineNo - 1,
-				})
-			}
-			return
-		}
-		s.codeBlockBuf = append(s.codeBlockBuf, line...)
-		s.codeBlockBuf = append(s.codeBlockBuf, '\n')
+		p.parseLineInCodeBlock(line, s)
 		return
 	}
 
-	// Fast path: inside cheat block - just accumulate
 	if s.inCheatBlock {
-		// Fast check: cheat end is "-->" possibly with whitespace
-		if len(line) >= 2 && line[0] == '-' && line[1] == '-' {
-			if isCheatEnd(line) {
-				s.inCheatBlock = false
-				p.processCheatBlock(path, s)
-				return
-			}
-		}
-		s.cheatBlockBuf = append(s.cheatBlockBuf, line...)
-		s.cheatBlockBuf = append(s.cheatBlockBuf, '\n')
+		p.parseLineInCheatBlock(path, line, s)
 		return
 	}
 
-	// Quick character checks before expensive operations
 	if len(line) == 0 {
 		return
 	}
 
 	first := line[0]
 
-	// Header - starts with #
-	if first == '#' {
-		if header, ok := parseHeader(line); ok {
-			p.processPendingBlocks(path, s)
-			s.reset(header, s.lineNo)
-			if header == "" {
-				p.index.Errors = append(p.index.Errors, ParseError{
-					File:    path,
-					Line:    s.lineNo,
-					Message: "empty markdown header",
-				})
-			}
+	if first == '#' && p.tryParseHeader(path, line, s) {
+		return
+	}
+
+	if first == '`' && p.tryParseCodeBlockStart(line, s) {
+		return
+	}
+
+	if first == '<' && p.tryParseCheatComment(path, line, s) {
+		return
+	}
+
+	p.parseProseLine(line, s)
+}
+
+func (p *Parser) parseLineInCodeBlock(line []byte, s *parseState) {
+	if len(line) == 3 && line[0] == '`' && line[1] == '`' && line[2] == '`' {
+		s.inCodeBlock = false
+		content := trimSpaceBytes(s.codeBlockBuf)
+		if len(content) > 0 {
+			s.pendingCodeBlocks = append(s.pendingCodeBlocks, codeBlock{
+				lang:        s.codeBlockLang,
+				content:     string(content),
+				description: s.codeBlockDesc,
+				startLine:   s.codeBlockStart,
+				endLine:     s.lineNo - 1,
+			})
+		}
+		return
+	}
+	s.codeBlockBuf = append(s.codeBlockBuf, line...)
+	s.codeBlockBuf = append(s.codeBlockBuf, '\n')
+}
+
+func (p *Parser) parseLineInCheatBlock(path string, line []byte, s *parseState) {
+	if len(line) >= 2 && line[0] == '-' && line[1] == '-' {
+		if isCheatEnd(line) {
+			s.inCheatBlock = false
+			p.processCheatBlock(path, s)
 			return
 		}
 	}
+	s.cheatBlockBuf = append(s.cheatBlockBuf, line...)
+	s.cheatBlockBuf = append(s.cheatBlockBuf, '\n')
+}
 
-	// Code block start - starts with ```
-	if first == '`' && len(line) >= 3 && line[1] == '`' && line[2] == '`' {
+func (p *Parser) tryParseHeader(path string, line []byte, s *parseState) bool {
+	if header, ok := parseHeader(line); ok {
+		p.processPendingBlocks(path, s)
+		s.reset(header, s.lineNo)
+		if header == "" {
+			p.index.Errors = append(p.index.Errors, ParseError{
+				File:    path,
+				Line:    s.lineNo,
+				Message: "empty markdown header",
+			})
+		}
+		return true
+	}
+	return false
+}
+
+func (p *Parser) tryParseCodeBlockStart(line []byte, s *parseState) bool {
+	if len(line) >= 3 && line[1] == '`' && line[2] == '`' {
 		if lang, desc, ok := parseCodeBlockStart(line); ok {
 			s.inCodeBlock = true
 			s.codeBlockLang = lang
 			s.codeBlockStart = s.lineNo + 1
 			s.codeBlockDesc = desc
 			s.codeBlockBuf = s.codeBlockBuf[:0]
-			return
+			return true
 		}
 	}
+	return false
+}
 
-	// Cheat comments - starts with <
-	if first == '<' {
-		// Single-line cheat comment: <!-- cheat ... -->
-		if content, ok := parseCheatSingleLine(line); ok {
-			p.processCheatComment(path, s, content)
-			return
-		}
-		// Multi-line cheat block start: <!-- cheat
-		if isCheatStart(line) {
-			s.inCheatBlock = true
-			s.cheatBlockStart = s.lineNo
-			s.cheatBlockBuf = s.cheatBlockBuf[:0]
-			return
-		}
+func (p *Parser) tryParseCheatComment(path string, line []byte, s *parseState) bool {
+	if content, ok := parseCheatSingleLine(line); ok {
+		p.processCheatComment(path, s, content)
+		return true
 	}
+	if isCheatStart(line) {
+		s.inCheatBlock = true
+		s.cheatBlockStart = s.lineNo
+		s.cheatBlockBuf = s.cheatBlockBuf[:0]
+		return true
+	}
+	return false
+}
 
-	// Prose line: scan for inline #tag tokens and attach to current header
+func (p *Parser) parseProseLine(line []byte, s *parseState) {
 	if s.currentHeader != "" && bytes.IndexByte(line, '#') >= 0 {
 		before := len(s.currentHeaderTags)
 		scanInlineTags(line, &s.currentHeaderTags)

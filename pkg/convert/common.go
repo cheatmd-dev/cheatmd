@@ -3,7 +3,6 @@ package convert
 import (
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -73,37 +72,6 @@ func rewriteNavi(command string) (string, []string) {
 	return command, phs
 }
 
-// rewriteTldr replaces {{name}} placeholders with $sanitized.
-func rewriteTldr(command string) (string, []string) {
-	phs := extractTldrPlaceholders(command)
-	for _, ph := range phs {
-		sanitized := sanitizeVarName(ph)
-		command = strings.ReplaceAll(command, "{{"+ph+"}}", "$"+sanitized)
-		command = strings.ReplaceAll(command, "{{ "+ph+" }}", "$"+sanitized)
-		command = strings.ReplaceAll(command, "{{"+ph+" }}", "$"+sanitized)
-		command = strings.ReplaceAll(command, "{{ "+ph+"}}", "$"+sanitized)
-	}
-	return command, phs
-}
-
-// rewriteBoth applies navi then tldr rewriting and returns the union of
-// placeholders in encounter order. Used by the cheat/cheat format, which mixes
-// both placeholder styles.
-func rewriteBoth(command string) (string, []string) {
-	command, navi := rewriteNavi(command)
-	command, tldr := rewriteTldr(command)
-	seen := make(map[string]struct{}, len(navi)+len(tldr))
-	all := make([]string, 0, len(navi)+len(tldr))
-	for _, ph := range append(navi, tldr...) {
-		if _, ok := seen[ph]; ok {
-			continue
-		}
-		seen[ph] = struct{}{}
-		all = append(all, ph)
-	}
-	return command, all
-}
-
 func extractPlaceholders(cmd string, re *regexp.Regexp) []string {
 	matches := re.FindAllStringSubmatch(cmd, -1)
 	var list []string
@@ -143,21 +111,22 @@ func extractTldrPlaceholders(cmd string) []string {
 }
 
 func findTldrPlaceholderEnd(cmd string, start int) int {
-	for i := start; i < len(cmd); {
+	consecutiveBraces := 0
+	for i := start; i < len(cmd); i++ {
 		if cmd[i] == '\n' {
 			return -1
 		}
-		if cmd[i] != '}' {
-			i++
-			continue
+		if cmd[i] == '}' {
+			consecutiveBraces++
+		} else {
+			if consecutiveBraces >= 2 {
+				return i - 2
+			}
+			consecutiveBraces = 0
 		}
-		runStart := i
-		for i < len(cmd) && cmd[i] == '}' {
-			i++
-		}
-		if i-runStart >= 2 {
-			return i - 2
-		}
+	}
+	if consecutiveBraces >= 2 {
+		return len(cmd) - 2
 	}
 	return -1
 }
@@ -194,26 +163,6 @@ func consumeCodeBlock(lines []string, index int) (string, int) {
 		index++
 	}
 	return strings.TrimSpace(cb.String()), index
-}
-
-// formatHeaderVarsBlock emits a `<!-- cheat ... -->` block declaring each
-// placeholder as a bare selector with the original name as its header label.
-// Used by tldr and cheat outputs, where there's no upstream var definition.
-func formatHeaderVarsBlock(placeholders []string) string {
-	if len(placeholders) == 0 {
-		return ""
-	}
-	var sb strings.Builder
-	sb.WriteString("<!-- cheat\n")
-	for _, ph := range placeholders {
-		sb.WriteString("var ")
-		sb.WriteString(sanitizeVarName(ph))
-		sb.WriteString(" --- --header ")
-		sb.WriteString(strconv.Quote(ph))
-		sb.WriteByte('\n')
-	}
-	sb.WriteString("-->\n")
-	return sb.String()
 }
 
 // parseFrontMatterTags extracts `tags:` from a leading `---` YAML block and

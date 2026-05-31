@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/cheatmd-dev/cheatmd/internal/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
-	"github.com/cheatmd-dev/cheatmd/pkg/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
@@ -224,4 +224,14 @@ func (m *mainModel) View() string {
 	default:
 		return m.renderCheatSelect()
 	}
+}
+
+// isOverlayNavKey reports whether key is a navigation/accept/cancel key
+// that an overlay handles directly (rather than passing to the text input).
+func isOverlayNavKey(key string) bool {
+	switch key {
+	case "ctrl+c", "esc", "enter", "up", "down", "ctrl+p", "ctrl+n", "pgup", "pgdown":
+		return true
+	}
+	return false
 }

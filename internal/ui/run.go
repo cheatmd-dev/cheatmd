@@ -10,10 +10,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/cheatmd-dev/cheatmd/internal/history"
 	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
-	"github.com/cheatmd-dev/cheatmd/pkg/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
@@ -23,7 +23,7 @@ func recordRun(cheat *parser.Cheat, finalCmd string) {
 	if cheat == nil || finalCmd == "" {
 		return
 	}
-	path, err := history.DefaultPath(config.GetHistoryFile())
+	path, err := history.DefaultPath(config.Get().HistoryFile)
 	if err != nil {
 		return
 	}
@@ -85,9 +85,7 @@ func RunTUI(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd stri
 // non-default starting phase. startPhase == phaseCheatSelect behaves the
 // same as RunTUI; phaseHistory opens the history overlay on entry.
 func RunTUIWithStart(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string, startPhase uiPhase) (string, error) {
-	requireCheatBlock := config.GetRequireCheatBlock()
-	autoSelect := config.GetAutoSelect()
-
+	requireCheatBlock := config.Get().RequireCheatBlock
 	cheats := index.FilterByConfig(requireCheatBlock)
 	if len(cheats) == 0 {
 		return "", fmt.Errorf("no cheats found")
@@ -101,96 +99,103 @@ func RunTUIWithStart(index *parser.CheatIndex, exec Executor, initialQuery, matc
 	if m.chainPath != "" {
 		m.chainState, _ = chainstate.Load(m.chainPath)
 	}
-	resumeChain := false
-	if initialQuery == "" && matchCmd == "" && startPhase == phaseCheatSelect {
-		if active := chainstate.ActiveName(index.Root, m.chainState); active != "" {
-			initialQuery = "/chain " + active
-			resumeChain = true
-		}
-	}
+
+	initialQuery, resumeChain := applyInitialChainState(&m, index, initialQuery, matchCmd, startPhase)
 
 	if matchCmd != "" {
-		if matched := resolver.FindMatchingCheat(cheats, matchCmd); matched != nil {
-			m.selected = matched
-			resolver.PrefillScopeFromMatch(matched, matchCmd)
-			resolver.InferDependentVars(matched, index)
-			m.startVarResolutionInternal()
-
-			if m.phase != phaseVarResolve {
-				finalCmd := exec.BuildFinalCommand(m.selected)
-				recordRun(m.selected, finalCmd)
-				advanceChain(index, m.selected, m.chainPath, m.chainState)
-				return finalCmd, nil
-			}
-
-			if m.varState != nil && len(m.varState.vars) > 0 {
-				vs := &m.varState.vars[0]
-				if vs.prefill != "" {
-					m.textInput.SetValue(vs.prefill)
-					m.textInput.CursorEnd()
-				}
-			}
-		} else {
+		if finalCmd, ok := handleMatchCmd(&m, index, exec, matchCmd); ok {
+			return finalCmd, nil
+		}
+		if m.selected == nil {
 			initialQuery = matchCmd
 		}
 	}
 
 	if initialQuery != "" {
-		m.textInput.SetValue(initialQuery)
-		m.filterCheats()
-
-		if (autoSelect || resumeChain) && len(m.picker.Filtered) == 1 {
-			m.selected = m.picker.Filtered[0].cheat
-			m.startVarResolutionInternal()
-
-			if m.phase != phaseVarResolve {
-				finalCmd := exec.BuildFinalCommand(m.selected)
-				recordRun(m.selected, finalCmd)
-				advanceChain(index, m.selected, m.chainPath, m.chainState)
-				return finalCmd, nil
-			}
+		if finalCmd, ok := handleInitialQuery(&m, index, exec, initialQuery, resumeChain); ok {
+			return finalCmd, nil
 		}
 	}
 
-	// If a non-default start phase is requested, transition into it before
-	// starting the bubbletea program. Only phaseHistory is supported as a
-	// jump-start currently; unsupported values are ignored.
-	if startPhase == phaseHistory && m.phase == phaseCheatSelect {
-		if !m.enterHistory() {
-			return "", fmt.Errorf("no history yet (run some cheats first)")
-		}
+	if startPhase == phaseHistory && m.selected == nil && initialQuery == "" {
+		m.enterHistory()
 	}
 
-	ttyIn, ttyOut, cleanup := getTTY()
+	in, out, cleanup := getTTY()
+	defer cleanup()
 	RefreshStyles()
-	p := tea.NewProgram(&m, tea.WithAltScreen(), tea.WithOutput(ttyOut), tea.WithInput(ttyIn))
-	finalModel, err := p.Run()
-	cleanup()
 
-	if err != nil {
+	p := tea.NewProgram(&m, tea.WithAltScreen(), tea.WithInput(in), tea.WithOutput(out))
+	if _, err := p.Run(); err != nil {
 		return "", err
 	}
 
-	result := finalModel.(*mainModel)
-	if result.quitting && result.selected == nil {
-		return "", nil
+	if m.selected != nil {
+		return finishCheat(&m, index, exec), nil
 	}
-	if result.selected == nil {
-		return "", nil
+	return "", nil
+}
+
+func applyInitialChainState(m *mainModel, index *parser.CheatIndex, initialQuery, matchCmd string, startPhase uiPhase) (string, bool) {
+	if initialQuery == "" && matchCmd == "" && startPhase == phaseCheatSelect {
+		if active := chainstate.ActiveName(index.Root, m.chainState); active != "" {
+			return "/chain " + active, true
+		}
+	}
+	return initialQuery, false
+}
+
+func handleMatchCmd(m *mainModel, index *parser.CheatIndex, exec Executor, matchCmd string) (string, bool) {
+	matched := resolver.FindMatchingCheat(index.FilterByConfig(config.Get().RequireCheatBlock), matchCmd)
+	if matched == nil {
+		return "", false
+	}
+	m.selected = matched
+	resolver.PrefillScopeFromMatch(matched, matchCmd)
+	resolver.InferDependentVars(matched, index)
+	m.startVarResolutionInternal()
+
+	if m.phase != phaseVarResolve {
+		return finishCheat(m, index, exec), true
 	}
 
-	finalCmd := exec.BuildFinalCommand(result.selected)
-	recordRun(result.selected, finalCmd)
-	advanceChain(index, result.selected, result.chainPath, result.chainState)
-	return finalCmd, nil
+	if m.varState != nil && len(m.varState.vars) > 0 {
+		if vs := &m.varState.vars[0]; vs.prefill != "" {
+			m.textInput.SetValue(vs.prefill)
+			m.textInput.CursorEnd()
+		}
+	}
+	return "", false
+}
+
+func handleInitialQuery(m *mainModel, index *parser.CheatIndex, exec Executor, initialQuery string, resumeChain bool) (string, bool) {
+	m.textInput.SetValue(initialQuery)
+	m.filterCheats()
+
+	if (config.Get().AutoSelect || resumeChain) && len(m.picker.Filtered) == 1 {
+		m.selected = m.picker.Filtered[0].cheat
+		m.startVarResolutionInternal()
+
+		if m.phase != phaseVarResolve {
+			return finishCheat(m, index, exec), true
+		}
+
+		if m.varState != nil && len(m.varState.vars) > 0 {
+			if vs := &m.varState.vars[0]; vs.prefill != "" {
+				m.textInput.SetValue(vs.prefill)
+				m.textInput.CursorEnd()
+			}
+		}
+	}
+	return "", false
 }
 
 func loadFrecencyScores() map[string]float64 {
-	path, err := history.DefaultPath(config.GetHistoryFile())
+	path, err := history.DefaultPath(config.Get().HistoryFile)
 	if err != nil {
 		return nil
 	}
-	entries, err := history.Load(path, config.GetHistoryMax())
+	entries, err := history.Load(path, config.Get().HistoryMax)
 	if err != nil {
 		return nil
 	}
@@ -222,7 +227,7 @@ func advanceChain(index *parser.CheatIndex, cheat *parser.Cheat, path string, st
 func openFileInViewer(filePath string) {
 	var cmd *exec.Cmd
 
-	if editor := config.GetEditor(); editor != "" {
+	if editor := config.Get().Editor; editor != "" {
 		cmd = exec.Command(editor, filePath)
 	} else {
 		switch runtime.GOOS {
@@ -235,4 +240,11 @@ func openFileInViewer(filePath string) {
 		}
 	}
 	_ = cmd.Start()
+}
+
+func finishCheat(m *mainModel, index *parser.CheatIndex, exec Executor) string {
+	finalCmd := exec.BuildFinalCommand(m.selected)
+	recordRun(m.selected, finalCmd)
+	advanceChain(index, m.selected, m.chainPath, m.chainState)
+	return finalCmd
 }

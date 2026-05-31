@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cheatmd-dev/cheatmd/pkg/httputil"
+	"github.com/cheatmd-dev/cheatmd/internal/httputil"
 	"github.com/cheatmd-dev/cheatmd/pkg/registry"
 )
 

@@ -36,17 +36,20 @@ func (p *Parser) buildCheatTags(path string, s *parseState) []string {
 
 // appendUniqueTags appends every entry in src to dst, lowercased and trimmed,
 // skipping duplicates already in dst. Linear scan; suitable for small tag sets.
+func containsTag(list []string, tag string) bool {
+	for _, existing := range list {
+		if existing == tag {
+			return true
+		}
+	}
+	return false
+}
+
 func appendUniqueTags(dst []string, src []string) []string {
-outer:
 	for _, t := range src {
 		t = strings.ToLower(strings.TrimSpace(t))
-		if t == "" {
+		if t == "" || containsTag(dst, t) {
 			continue
-		}
-		for _, existing := range dst {
-			if existing == t {
-				continue outer
-			}
 		}
 		dst = append(dst, t)
 	}
@@ -171,10 +174,7 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 	openStart := openEnd
 	for openStart > 0 {
 		lineEnd := openStart
-		lineStart := lineEnd
-		for lineStart > 0 && data[lineStart-1] != '\n' {
-			lineStart--
-		}
+		lineStart := findLineStart(data, lineEnd)
 		line := bytes.TrimRight(data[lineStart:lineEnd], " \t\r")
 		if bytes.Equal(line, []byte("---")) && lineStart != openEnd-3 {
 			tags := parseYAMLTags(data[lineEnd+1 : openEnd])
@@ -188,6 +188,14 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 	return nil, nil, false
 }
 
+func findLineStart(data []byte, end int) int {
+	start := end
+	for start > 0 && data[start-1] != '\n' {
+		start--
+	}
+	return start
+}
+
 // extractHashtagFooter recognizes a trailing block of #tag lines, optionally
 // preceded by a "---" horizontal rule.
 func extractHashtagFooter(data []byte, end int) ([]byte, []string, bool) {
@@ -197,10 +205,7 @@ func extractHashtagFooter(data []byte, end int) ([]byte, []string, bool) {
 
 	for cut > 0 {
 		lineEnd := cut
-		lineStart := lineEnd
-		for lineStart > 0 && data[lineStart-1] != '\n' {
-			lineStart--
-		}
+		lineStart := findLineStart(data, lineEnd)
 		line := bytes.TrimSpace(data[lineStart:lineEnd])
 
 		if len(line) == 0 {
@@ -247,9 +252,7 @@ func parseHashtagLine(line []byte) ([]string, bool) {
 	var tags []string
 	i := 0
 	for i < len(line) {
-		for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
-			i++
-		}
+		i = skipWhitespace(line, i)
 		if i >= len(line) {
 			break
 		}
@@ -274,15 +277,19 @@ func parseHashtagLine(line []byte) ([]string, bool) {
 	return tags, true
 }
 
+func skipWhitespace(line []byte, i int) int {
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	return i
+}
+
 // findYAMLClose locates a "---" line at start-of-line at or after pos.
 // Returns the byte offset where "---" begins and the offset just past its newline.
 func findYAMLClose(data []byte, pos int) (closeStart, closeEnd int, ok bool) {
 	lineStart := pos
 	for lineStart < len(data) {
-		lineEnd := lineStart
-		for lineEnd < len(data) && data[lineEnd] != '\n' {
-			lineEnd++
-		}
+		lineEnd := findLineEnd(data, lineStart)
 		line := bytes.TrimRight(data[lineStart:lineEnd], " \t\r")
 		if bytes.Equal(line, []byte("---")) {
 			next := lineEnd
@@ -297,6 +304,14 @@ func findYAMLClose(data []byte, pos int) (closeStart, closeEnd int, ok bool) {
 		lineStart = lineEnd + 1
 	}
 	return 0, 0, false
+}
+
+func findLineEnd(data []byte, start int) int {
+	end := start
+	for end < len(data) && data[end] != '\n' {
+		end++
+	}
+	return end
 }
 
 // parseYAMLTags reads tags from a YAML block. Supports:
@@ -342,11 +357,17 @@ func parseYAMLTags(data []byte) []string {
 
 		rest = strings.TrimPrefix(rest, "[")
 		rest = strings.TrimSuffix(rest, "]")
-		for _, part := range strings.Split(rest, ",") {
-			item := strings.Trim(strings.TrimSpace(part), "\"'")
-			if item != "" {
-				tags = append(tags, item)
-			}
+		tags = append(tags, parseCommaTags(rest)...)
+	}
+	return tags
+}
+
+func parseCommaTags(s string) []string {
+	var tags []string
+	for _, part := range strings.Split(s, ",") {
+		item := strings.Trim(strings.TrimSpace(part), "\"'")
+		if item != "" {
+			tags = append(tags, item)
 		}
 	}
 	return tags

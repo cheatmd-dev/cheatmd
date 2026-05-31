@@ -74,7 +74,7 @@ func ApplyMapTransform(value string, opts SelectOptions) string {
 	}
 
 	// Run the map command with the value as stdin
-	cmd := exec.Command(config.GetShell(), "-c", opts.MapCmd)
+	cmd := exec.Command(config.Get().Shell, "-c", opts.MapCmd)
 	cmd.Stdin = strings.NewReader(value)
 	out, err := cmd.Output()
 	if err != nil {

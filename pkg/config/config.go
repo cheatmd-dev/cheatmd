@@ -56,10 +56,10 @@ type Config struct {
 	PreviewHeight int  `mapstructure:"preview_height"`
 
 	// Colors
-	Colors ColorConfig
+	Colors ColorConfig `mapstructure:",squash"`
 
 	// Columns
-	Columns ColumnConfig
+	Columns ColumnConfig `mapstructure:",squash"`
 }
 
 // ColorConfig holds all color settings
@@ -91,57 +91,31 @@ type ColumnConfig struct {
 // via the registry_url config key for private/self-hosted registries.
 const DefaultRegistryURL = "https://raw.githubusercontent.com/cheatmd-dev/registry/main/registry.yaml"
 
-var defaults = struct {
-	path                string
-	registryURL         string
-	output              string
-	shell               string
-	editor              string
-	preHook             string
-	postHook            string
-	requireCheatBlock   bool
-	allowUndeclaredVars bool
-	varSyntax           string
-	autoSelect          bool
-	autoContinue        bool
-	keyWidget           string
-	keyOpen             string
-	keySubstitute       string
-	keyPreview          string
-	keyHistory          string
-	historyFile         string
-	historyMax          int
-	substituteSources   []string
-	showFolder          bool
-	showFile            bool
-	previewHeight       int
-	colors              ColorConfig
-	columns             ColumnConfig
-}{
-	path:                ".",
-	registryURL:         DefaultRegistryURL,
-	output:              "print",
-	shell:               "", // Set dynamically
-	editor:              "", // Empty means use system default (xdg-open/open/start)
-	preHook:             "",
-	postHook:            "",
-	requireCheatBlock:   false,
-	allowUndeclaredVars: false,
-	varSyntax:           "dollar",
-	autoSelect:          false,
-	autoContinue:        false,
-	keyWidget:           "\\C-g",  // Ctrl+G for shell widgets
-	keyOpen:             "ctrl+o", // Ctrl+O in TUI
-	keySubstitute:       "ctrl+t", // Ctrl+T opens substitute search during var resolution
-	keyPreview:          "ctrl+y", // Ctrl+Y opens markdown preview of current cheat's file
-	keyHistory:          "ctrl+h", // Ctrl+H opens execution history
-	historyFile:         "",       // Empty -> $XDG_DATA_HOME/cheatmd/history.jsonl
-	historyMax:          1000,
-	substituteSources:   []string{"env", "history"},
-	showFolder:          true,
-	showFile:            true,
-	previewHeight:       6,
-	colors: ColorConfig{
+var DefaultConfig = Config{
+	Path:                ".",
+	RegistryURL:         DefaultRegistryURL,
+	Output:              "print",
+	Shell:               "", // Set dynamically
+	Editor:              "", // Empty means use system default (xdg-open/open/start)
+	PreHook:             "",
+	PostHook:            "",
+	RequireCheatBlock:   false,
+	AllowUndeclaredVars: false,
+	VarSyntax:           "dollar",
+	AutoSelect:          false,
+	AutoContinue:        false,
+	KeyWidget:           "\\C-g",  // Ctrl+G for shell widgets
+	KeyOpen:             "ctrl+o", // Ctrl+O in TUI
+	KeySubstitute:       "ctrl+t", // Ctrl+T opens substitute search during var resolution
+	KeyPreview:          "ctrl+y", // Ctrl+Y opens markdown preview of current cheat's file
+	KeyHistory:          "ctrl+h", // Ctrl+H opens execution history
+	HistoryFile:         "",       // Empty -> $XDG_DATA_HOME/cheatmd/history.jsonl
+	HistoryMax:          1000,
+	SubstituteSources:   []string{"env", "history"},
+	ShowFolder:          true,
+	ShowFile:            true,
+	PreviewHeight:       6,
+	Colors: ColorConfig{
 		Header:   "36",  // Cyan
 		Command:  "32",  // Green
 		Desc:     "246", // Light gray
@@ -151,7 +125,7 @@ var defaults = struct {
 		Selected: "236", // Dark bg
 		Dim:      "245", // Medium gray
 	},
-	columns: ColumnConfig{
+	Columns: ColumnConfig{
 		Gap:     4,
 		Header:  40,
 		Desc:    40,
@@ -164,11 +138,17 @@ var defaults = struct {
 // ============================================================================
 
 // cfg is the global config instance
-var cfg Config
+var cfg Config = DefaultConfig
 
 // Init initializes configuration with viper
 func Init() error {
-	setDefaults()
+	cfg = DefaultConfig // copy defaults
+
+	shell := os.Getenv("SHELL")
+	if shell != "" {
+		cfg.Shell = shell
+	}
+
 	configureViper()
 
 	var configErr error
@@ -185,60 +165,9 @@ func Init() error {
 	return configErr
 }
 
-// setDefaults sets all default values in viper
-func setDefaults() {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/bash"
-	}
-
-	viper.SetDefault("path", defaults.path)
-	viper.SetDefault("registry_url", defaults.registryURL)
-	viper.SetDefault("output", defaults.output)
-	viper.SetDefault("shell", shell)
-	viper.SetDefault("editor", defaults.editor)
-	viper.SetDefault("pre_hook", defaults.preHook)
-	viper.SetDefault("post_hook", defaults.postHook)
-	viper.SetDefault("require_cheat_block", defaults.requireCheatBlock)
-	viper.SetDefault("allow_undeclared_vars", defaults.allowUndeclaredVars)
-	viper.SetDefault("var_syntax", defaults.varSyntax)
-	viper.SetDefault("auto_select", defaults.autoSelect)
-	viper.SetDefault("auto_continue", defaults.autoContinue)
-
-	// Keybindings
-	viper.SetDefault("key_widget", defaults.keyWidget)
-	viper.SetDefault("key_open", defaults.keyOpen)
-	viper.SetDefault("key_substitute", defaults.keySubstitute)
-	viper.SetDefault("key_preview", defaults.keyPreview)
-	viper.SetDefault("key_history", defaults.keyHistory)
-
-	// Execution history
-	viper.SetDefault("history_file", defaults.historyFile)
-	viper.SetDefault("history_max", defaults.historyMax)
-
-	// Substitute search
-	viper.SetDefault("substitute_sources", defaults.substituteSources)
-
-	// Display options
-	viper.SetDefault("show_folder", defaults.showFolder)
-	viper.SetDefault("show_file", defaults.showFile)
-	viper.SetDefault("preview_height", defaults.previewHeight)
-
-	// Colors
-	viper.SetDefault("color_header", defaults.colors.Header)
-	viper.SetDefault("color_command", defaults.colors.Command)
-	viper.SetDefault("color_desc", defaults.colors.Desc)
-	viper.SetDefault("color_path", defaults.colors.Path)
-	viper.SetDefault("color_border", defaults.colors.Border)
-	viper.SetDefault("color_cursor", defaults.colors.Cursor)
-	viper.SetDefault("color_selected", defaults.colors.Selected)
-	viper.SetDefault("color_dim", defaults.colors.Dim)
-
-	// Columns
-	viper.SetDefault("column_gap", defaults.columns.Gap)
-	viper.SetDefault("column_header", defaults.columns.Header)
-	viper.SetDefault("column_desc", defaults.columns.Desc)
-	viper.SetDefault("column_command", defaults.columns.Command)
+// Get returns a pointer to the global configuration
+func Get() *Config {
+	return &cfg
 }
 
 // configureViper sets up viper configuration sources
@@ -260,260 +189,6 @@ func configureViper() {
 // Getters - Core Settings
 // ============================================================================
 
-// GetPath returns the cheat path with tilde expansion
-func GetPath() string {
-	return expandTilde(viper.GetString("path"))
-}
-
-// GetRegistryURL returns the cheat-pack registry manifest URL.
-func GetRegistryURL() string {
-	return viper.GetString("registry_url")
-}
-
-// GetOutput returns the output mode
-func GetOutput() string {
-	return viper.GetString("output")
-}
-
-// GetShell returns the configured shell
-func GetShell() string {
-	return viper.GetString("shell")
-}
-
-// GetPreHook returns the pre-execution hook
-func GetPreHook() string {
-	return viper.GetString("pre_hook")
-}
-
-// GetPostHook returns the post-execution hook
-func GetPostHook() string {
-	return viper.GetString("post_hook")
-}
-
-// GetEditor returns the configured editor command (empty = system default)
-func GetEditor() string {
-	return viper.GetString("editor")
-}
-
-// GetAllowUndeclaredVars returns whether variables referenced in a cheat's
-// command but not declared in any <!-- cheat --> block should be prompted at
-// runtime. When false (default), undeclared variables are silently skipped.
-//
-// Reads from the cached struct populated at Init() because this getter is
-// called in hot paths (per-variable, per-render).
-func GetAllowUndeclaredVars() bool {
-	return cfg.AllowUndeclaredVars
-}
-
-// GetVarSyntax returns the configured variable syntax mode.
-// Valid values: "dollar" (default), "angle", "both".
-//
-// Reads from the cached struct populated at Init() because this getter is
-// called in hot paths (per-variable, per-render).
-func GetVarSyntax() string {
-	v := cfg.VarSyntax
-	switch v {
-	case "dollar", "angle", "both":
-		return v
-	default:
-		return "dollar"
-	}
-}
-
-// VarSyntaxAllowsDollar reports whether $name is recognized as a variable.
-func VarSyntaxAllowsDollar() bool {
-	s := GetVarSyntax()
-	return s == "dollar" || s == "both"
-}
-
-// VarSyntaxAllowsAngle reports whether <name> is recognized as a variable.
-func VarSyntaxAllowsAngle() bool {
-	s := GetVarSyntax()
-	return s == "angle" || s == "both"
-}
-
-// GetRequireCheatBlock returns whether to require cheat blocks
-func GetRequireCheatBlock() bool {
-	return viper.GetBool("require_cheat_block")
-}
-
-// GetAutoSelect returns whether to auto-select single matches
-func GetAutoSelect() bool {
-	return viper.GetBool("auto_select")
-}
-
-// GetAutoContinue returns whether to auto-continue when vars are prefilled from environment
-func GetAutoContinue() bool {
-	return viper.GetBool("auto_continue")
-}
-
-// ============================================================================
-// Getters - Keybindings
-// ============================================================================
-
-// GetKeyWidget returns the keybinding for shell widget activation (e.g., "\C-g" for Ctrl+G)
-func GetKeyWidget() string {
-	return viper.GetString("key_widget")
-}
-
-// GetKeyOpen returns the keybinding for opening markdown in editor (e.g., "ctrl+o")
-func GetKeyOpen() string {
-	return viper.GetString("key_open")
-}
-
-// GetKeySubstitute returns the keybinding for opening the substitute search
-// during variable resolution (e.g., "ctrl+t").
-func GetKeySubstitute() string {
-	return viper.GetString("key_substitute")
-}
-
-// GetKeyPreview returns the keybinding for opening the markdown preview of
-// the current cheat's source file (e.g., "ctrl+y").
-func GetKeyPreview() string {
-	return viper.GetString("key_preview")
-}
-
-// GetKeyHistory returns the keybinding for opening the execution history
-// overlay (e.g., "ctrl+h").
-func GetKeyHistory() string {
-	return viper.GetString("key_history")
-}
-
-// GetHistoryFile returns the override path for the history file, or "" for
-// the default ($XDG_DATA_HOME/cheatmd/history.jsonl).
-func GetHistoryFile() string {
-	return viper.GetString("history_file")
-}
-
-// GetHistoryMax returns the cap on history entries shown in the picker.
-// Zero or negative means unlimited.
-func GetHistoryMax() int {
-	return viper.GetInt("history_max")
-}
-
-// GetSubstituteSources returns the enabled sources for substitute search.
-// Valid entries: "env", "history". Empty disables the feature.
-func GetSubstituteSources() []string {
-	return viper.GetStringSlice("substitute_sources")
-}
-
-// ============================================================================
-// Getters - Display Options
-// ============================================================================
-
-// GetShowFolder returns whether to show folder in title/list
-func GetShowFolder() bool {
-	return viper.GetBool("show_folder")
-}
-
-// GetShowFile returns whether to show file in title/list
-func GetShowFile() bool {
-	return viper.GetBool("show_file")
-}
-
-// GetPreviewHeight returns the preview section height in lines
-func GetPreviewHeight() int {
-	return viper.GetInt("preview_height")
-}
-
-// ============================================================================
-// Getters - Colors
-// ============================================================================
-
-// GetColorHeader returns the header color code
-func GetColorHeader() string {
-	return viper.GetString("color_header")
-}
-
-// GetColorCommand returns the command color code
-func GetColorCommand() string {
-	return viper.GetString("color_command")
-}
-
-// GetColorDesc returns the description color code
-func GetColorDesc() string {
-	return viper.GetString("color_desc")
-}
-
-// GetColorPath returns the path color code
-func GetColorPath() string {
-	return viper.GetString("color_path")
-}
-
-// GetColorBorder returns the border color code
-func GetColorBorder() string {
-	return viper.GetString("color_border")
-}
-
-// GetColorCursor returns the cursor color code
-func GetColorCursor() string {
-	return viper.GetString("color_cursor")
-}
-
-// GetColorSelected returns the selected background color code
-func GetColorSelected() string {
-	return viper.GetString("color_selected")
-}
-
-// GetColorDim returns the dimmed text color code
-func GetColorDim() string {
-	return viper.GetString("color_dim")
-}
-
-// ============================================================================
-// Getters - Columns
-// ============================================================================
-
-// GetColumnGap returns column spacing
-func GetColumnGap() int {
-	return viper.GetInt("column_gap")
-}
-
-// GetColumnHeader returns header column width
-func GetColumnHeader() int {
-	return viper.GetInt("column_header")
-}
-
-// GetColumnDesc returns description column width
-func GetColumnDesc() int {
-	return viper.GetInt("column_desc")
-}
-
-// GetColumnCommand returns command column width
-func GetColumnCommand() int {
-	return viper.GetInt("column_command")
-}
-
-// ============================================================================
-// Setters
-// ============================================================================
-
-// SetOutput sets the output mode at runtime
-func SetOutput(mode string) {
-	viper.Set("output", mode)
-	cfg.Output = mode
-}
-
-// SetAutoSelect sets auto-select mode at runtime
-func SetAutoSelect(enabled bool) {
-	viper.Set("auto_select", enabled)
-	cfg.AutoSelect = enabled
-}
-
-// ============================================================================
-// First-run setup
-// ============================================================================
-
-// DefaultConfigPath returns the path where WriteDefaultConfig writes the
-// starter config: ~/.config/cheatmd/cheatmd.yaml.
-func DefaultConfigPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "cheatmd.yaml"
-	}
-	return filepath.Join(home, ".config", "cheatmd", "cheatmd.yaml")
-}
-
 // CheatsInstallDir returns the directory cheat packs should be installed into,
 // and where installed-pack detection looks. It is the configured cheats path
 // when the user has set one to a real directory; otherwise it falls back to
@@ -523,7 +198,7 @@ func DefaultConfigPath() string {
 // The default path is "." (browse the current directory); we treat that as
 // "unset" for install purposes so packs never land in an arbitrary cwd.
 func CheatsInstallDir() string {
-	if p := GetPath(); p != "" && p != "." {
+	if p := Get().Path; p != "" && p != "." {
 		return p
 	}
 	return DefaultCheatsDir()
@@ -592,4 +267,23 @@ func expandTilde(path string) string {
 		return filepath.Join(home, path[1:])
 	}
 	return path
+}
+
+func VarSyntaxAllowsDollar() bool {
+	syntax := Get().VarSyntax
+	return syntax == "dollar" || syntax == "both" || syntax == ""
+}
+
+func VarSyntaxAllowsAngle() bool {
+	syntax := Get().VarSyntax
+	return syntax == "angle" || syntax == "both"
+}
+
+// DefaultConfigPath is the path to the user's config file
+func DefaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "cheatmd.yaml"
+	}
+	return filepath.Join(home, ".config", "cheatmd", "cheatmd.yaml")
 }

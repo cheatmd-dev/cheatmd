@@ -59,65 +59,87 @@ func initConfig() {
 }
 
 func runCheats(cmd *cobra.Command, args []string) error {
-	// Determine path
-	path := "."
-	if len(args) > 0 {
-		path = args[0]
-	} else if config.GetPath() != "." {
-		path = config.GetPath()
-	}
-
-	// Handle output mode flags
-	if p, _ := cmd.Flags().GetBool("print"); p {
-		config.SetOutput("print")
-	} else if c, _ := cmd.Flags().GetBool("copy"); c {
-		config.SetOutput("copy")
-	} else if e, _ := cmd.Flags().GetBool("exec"); e {
-		config.SetOutput("exec")
-	}
-
-	if auto, _ := cmd.Flags().GetBool("auto"); auto {
-		config.SetAutoSelect(true)
-	}
-
-	query, _ := cmd.Flags().GetString("query")
-	match, _ := cmd.Flags().GetString("match")
-
-	// Resolve path
-	absPath, err := filepath.Abs(path)
+	absPath, err := resolveCheatPath(args)
 	if err != nil {
-		return fmt.Errorf("error resolving path: %w", err)
+		return err
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return fmt.Errorf("path error: %w", err)
-	}
+	configureExecutionMode(cmd)
 
-	lintFlag, _ := cmd.Flags().GetBool("lint")
-	if lintFlag {
+	if lintFlag, _ := cmd.Flags().GetBool("lint"); lintFlag {
 		return runLint(cmd, absPath)
 	}
 
-	// Parse markdown files
 	benchmark, _ := cmd.Flags().GetBool("benchmark")
-
 	start := time.Now()
 
-	p := parser.NewParser()
-	var index *parser.CheatIndex
-
-	if info.IsDir() {
-		index, err = p.ParseDirectory(absPath)
-	} else {
-		index, err = p.ParseSingleFile(absPath)
-	}
-
+	index, err := loadAndParseCheats(absPath)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		return err
 	}
 
-	// Check for duplicate exports
+	warnDuplicateExports(cmd, index)
+
+	if len(index.Cheats) == 0 {
+		return fmt.Errorf("no cheats found in %s. Run `cheatmd init` to install starter packs", absPath)
+	}
+
+	exec := executor.NewExecutor(index)
+
+	if benchmark {
+		return runBenchmark(cmd, index, start)
+	}
+
+	return executeHeadlessOrTUI(cmd, index, exec)
+}
+
+func resolveCheatPath(args []string) (string, error) {
+	path := "."
+	if len(args) > 0 {
+		path = args[0]
+	} else if config.Get().Path != "." {
+		path = config.Get().Path
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("error resolving path: %w", err)
+	}
+
+	if _, err := os.Stat(absPath); err != nil {
+		return "", fmt.Errorf("path error: %w", err)
+	}
+	return absPath, nil
+}
+
+func configureExecutionMode(cmd *cobra.Command) {
+	if p, _ := cmd.Flags().GetBool("print"); p {
+		config.Get().Output = "print"
+	} else if c, _ := cmd.Flags().GetBool("copy"); c {
+		config.Get().Output = "copy"
+	} else if e, _ := cmd.Flags().GetBool("exec"); e {
+		config.Get().Output = "exec"
+	}
+
+	if auto, _ := cmd.Flags().GetBool("auto"); auto {
+		config.Get().AutoSelect = true
+	}
+}
+
+func loadAndParseCheats(absPath string) (*parser.CheatIndex, error) {
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("path error: %w", err)
+	}
+
+	p := parser.NewParser()
+	if info.IsDir() {
+		return p.ParseDirectory(absPath)
+	}
+	return p.ParseSingleFile(absPath)
+}
+
+func warnDuplicateExports(cmd *cobra.Command, index *parser.CheatIndex) {
 	if len(index.Duplicates) > 0 {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Warning: duplicate exports found:")
 		for _, dup := range index.Duplicates {
@@ -125,33 +147,29 @@ func runCheats(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintln(cmd.ErrOrStderr())
 	}
+}
 
-	if len(index.Cheats) == 0 {
-		return fmt.Errorf("no cheats found in %s. Run `cheatmd init` to install starter packs", absPath)
-	}
+func runBenchmark(cmd *cobra.Command, index *parser.CheatIndex, start time.Time) error {
+	elapsed := time.Since(start)
+	runtime.GC()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Fprintf(cmd.OutOrStdout(), "Loaded %d cheats in %v\n", len(index.Cheats), elapsed)
+	fmt.Fprintf(cmd.OutOrStdout(), "Memory: Alloc=%dMB, TotalAlloc=%dMB, Sys=%dMB, HeapObjects=%d\n",
+		m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.HeapObjects)
+	return nil
+}
 
-	// Create executor
-	exec := executor.NewExecutor(index)
+func executeHeadlessOrTUI(cmd *cobra.Command, index *parser.CheatIndex, exec *executor.Executor) error {
+	query, _ := cmd.Flags().GetString("query")
+	match, _ := cmd.Flags().GetString("match")
 
-	if benchmark {
-		elapsed := time.Since(start)
-		// Force GC and get memory stats
-		runtime.GC()
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		fmt.Fprintf(cmd.OutOrStdout(), "Loaded %d cheats in %v\n", len(index.Cheats), elapsed)
-		fmt.Fprintf(cmd.OutOrStdout(), "Memory: Alloc=%dMB, TotalAlloc=%dMB, Sys=%dMB, HeapObjects=%d\n",
-			m.Alloc/1024/1024, m.TotalAlloc/1024/1024, m.Sys/1024/1024, m.HeapObjects)
-		return nil
-	}
-
-	headlessFlag, _ := cmd.Flags().GetBool("headless")
-	if headlessFlag {
+	if headlessFlag, _ := cmd.Flags().GetBool("headless"); headlessFlag {
 		return headless.Run(index, exec, query, match)
 	}
 
-	// Run the TUI (history view if --history was passed)
 	var finalCmd string
+	var err error
 	if historyFlag, _ := cmd.Flags().GetBool("history"); historyFlag {
 		finalCmd, err = ui.RunHistory(index, exec)
 	} else {
@@ -165,23 +183,19 @@ func runCheats(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Apply hooks
-	if preHook := config.GetPreHook(); preHook != "" {
+	if preHook := config.Get().PreHook; preHook != "" {
 		finalCmd = preHook + finalCmd
 	}
-	if postHook := config.GetPostHook(); postHook != "" {
+	if postHook := config.Get().PostHook; postHook != "" {
 		finalCmd = finalCmd + postHook
 	}
 
-	switch config.GetOutput() {
+	switch config.Get().Output {
 	case "exec":
 		fmt.Fprint(cmd.ErrOrStderr(), finalCmd)
 		return exec.OutputWithMode(finalCmd, executor.OutputExec)
 	case "copy":
-		if err := exec.OutputWithMode(finalCmd, executor.OutputCopy); err != nil {
-			return err
-		}
-		return nil
+		return exec.OutputWithMode(finalCmd, executor.OutputCopy)
 	default: // print
 		fmt.Fprint(cmd.OutOrStdout(), finalCmd)
 		return nil

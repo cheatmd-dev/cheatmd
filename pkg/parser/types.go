@@ -44,15 +44,17 @@ type VarDef struct {
 	Condition string // Conditional expression: "$var == value" or "$var != value"
 }
 
+func parseVarDefBase(value string) (string, string) {
+	if idx := strings.Index(value, "---"); idx != -1 {
+		return strings.TrimSpace(value[:idx]), strings.TrimSpace(value[idx+3:])
+	}
+	return strings.TrimSpace(value), ""
+}
+
 // ParseVarDef parses a variable definition from name and value (shell command).
 func ParseVarDef(name, value string) VarDef {
 	v := VarDef{Name: name}
-	if idx := strings.Index(value, "---"); idx != -1 {
-		v.Shell = strings.TrimSpace(value[:idx])
-		v.Args = strings.TrimSpace(value[idx+3:])
-	} else {
-		v.Shell = strings.TrimSpace(value)
-	}
+	v.Shell, v.Args = parseVarDefBase(value)
 	return v
 }
 
@@ -60,12 +62,7 @@ func ParseVarDef(name, value string) VarDef {
 // substitution).
 func ParseVarDefLiteral(name, value string) VarDef {
 	v := VarDef{Name: name}
-	if idx := strings.Index(value, "---"); idx != -1 {
-		v.Literal = strings.TrimSpace(value[:idx])
-		v.Args = strings.TrimSpace(value[idx+3:])
-	} else {
-		v.Literal = strings.TrimSpace(value)
-	}
+	v.Literal, v.Args = parseVarDefBase(value)
 	return v
 }
 

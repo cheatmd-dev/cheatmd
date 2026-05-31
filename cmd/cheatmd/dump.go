@@ -110,8 +110,8 @@ func parseDumpIndex(args []string) (*parser.CheatIndex, error) {
 	path := "."
 	if len(args) > 0 {
 		path = args[0]
-	} else if config.GetPath() != "." {
-		path = config.GetPath()
+	} else if config.Get().Path != "." {
+		path = config.Get().Path
 	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
