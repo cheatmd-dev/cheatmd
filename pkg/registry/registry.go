@@ -9,10 +9,11 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/cheatmd-dev/cheatmd/internal/httputil"
 	"io"
 	"strings"
 	"time"
+
+	"github.com/cheatmd-dev/cheatmd/internal/httputil"
 
 	yaml "go.yaml.in/yaml/v3"
 )
@@ -52,7 +53,8 @@ func Fetch(ctx context.Context, url string) (*Registry, error) {
 	}
 	defer respBody.Close()
 
-	data, err := io.ReadAll(respBody)
+	// Cap registry fetch to 5MB to prevent memory exhaustion
+	data, err := io.ReadAll(io.LimitReader(respBody, 5*1024*1024))
 	if err != nil {
 		return nil, fmt.Errorf("read registry body: %w", err)
 	}
