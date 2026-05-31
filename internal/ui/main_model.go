@@ -101,18 +101,18 @@ type mainModel struct {
 
 // varResolveState holds state for resolving variables within the unified TUI
 type varResolveState struct {
-	cheat               *parser.Cheat
-	vars                []varState
-	currentIdx          int
-	options             []string // options for current variable (from shell command)
-	picker              *Picker[FilteredOption]
-	selectOpts          SelectOptions
-	customHeader        string
-	shellErr            error // error from running shell command (if any)
-	isPromptOnly        bool  // true if no options, just text input
-	pathPicker          *Picker[pathCompletionCandidate]
-	pathTokenStart      int
-	pathTokenEnd        int
+	cheat          *parser.Cheat
+	vars           []varState
+	currentIdx     int
+	options        []string // options for current variable (from shell command)
+	picker         *Picker[FilteredOption]
+	selectOpts     SelectOptions
+	customHeader   string
+	shellErr       error // error from running shell command (if any)
+	isPromptOnly   bool  // true if no options, just text input
+	pathPicker     *Picker[pathCompletionCandidate]
+	pathTokenStart int
+	pathTokenEnd   int
 }
 
 func (m *mainModel) applyFrecency(scores map[string]float64) {

@@ -147,7 +147,7 @@ func (m *mainModel) completePathFromInput() bool {
 	if m.varState == nil {
 		return false
 	}
-	
+
 	// If path picker is active, this is a tab cycle request
 	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
 		p := m.varState.pathPicker
@@ -157,7 +157,7 @@ func (m *mainModel) completePathFromInput() bool {
 		} else {
 			p.MoveCursor(1)
 		}
-		
+
 		if opt, ok := p.Selected(); ok {
 			runes := []rune(m.textInput.Value())
 			newRunes := make([]rune, 0)
@@ -167,7 +167,7 @@ func (m *mainModel) completePathFromInput() bool {
 			if m.varState.pathTokenEnd < len(runes) {
 				newRunes = append(newRunes, runes[m.varState.pathTokenEnd:]...)
 			}
-			
+
 			m.textInput.SetValue(string(newRunes))
 			m.textInput.SetCursor(newCursor)
 			m.varState.pathTokenEnd = newCursor
