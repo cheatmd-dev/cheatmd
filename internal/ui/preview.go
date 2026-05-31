@@ -144,6 +144,7 @@ func newPreviewViewport(width, height int) viewport.Model {
 // terminal width. Uses a custom style configured from cheatmd's color palette
 // so the preview matches the rest of the TUI.
 func renderMarkdown(raw string, width int) (string, error) {
+	raw = StripANSI(raw)
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(cheatmdGlamourStyle()),
 		glamour.WithWordWrap(max(width-4, 40)),
