@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/cheatmd-dev/cheatmd/wiki
+    about: Browse the docs — many questions are answered there.
+  - name: Submit a cheat pack
+    url: https://github.com/cheatmd-dev/registry
+    about: Add your cheats to the community registry.
