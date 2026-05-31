@@ -1,7 +1,6 @@
 package headless
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -40,7 +39,7 @@ type RunnerSession struct {
 	Exec    Executor
 	Cheat   *parser.Cheat
 	Vars    []resolver.VarState
-	Scanner *bufio.Scanner
+	Decoder *json.Decoder
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
@@ -48,7 +47,7 @@ func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string)
 	session := &RunnerSession{
 		Index:   index,
 		Exec:    exec,
-		Scanner: bufio.NewScanner(os.Stdin),
+		Decoder: json.NewDecoder(os.Stdin),
 	}
 	return session.Execute(initialQuery, matchCmd)
 }

@@ -249,3 +249,71 @@ func TestRunHeadlessConditionalDependencies(t *testing.T) {
 		t.Errorf("unexpected command: %q", completed.Params.Command)
 	}
 }
+
+func TestRunHeadlessRPCLimit(t *testing.T) {
+	cheat := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Test Headless Limit",
+		Command: "echo $payload",
+		Vars: []parser.VarDef{
+			{Name: "payload"},
+		},
+	}
+
+	index := parser.NewCheatIndex()
+	index.Cheats = []*parser.Cheat{cheat}
+
+	oldStdin := os.Stdin
+	oldStdout := os.Stdout
+	defer func() {
+		os.Stdin = oldStdin
+		os.Stdout = oldStdout
+	}()
+
+	rIn, wIn, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = rIn
+
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = wOut
+
+	largePayload := strings.Repeat("a", 70000)
+
+	resBytes, _ := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"result": map[string]interface{}{
+			"values": map[string]string{
+				"payload": largePayload,
+			},
+		},
+		"id": 1,
+	})
+	go func() {
+		_, _ = wIn.Write(append(resBytes, '\n'))
+		_ = wIn.Close()
+	}()
+
+	exec := &mockHeadlessExecutor{
+		finalCmd: "echo " + largePayload,
+	}
+
+	outChan := make(chan string)
+	go func() {
+		var buf strings.Builder
+		_, _ = io.Copy(&buf, rOut)
+		outChan <- buf.String()
+	}()
+
+	err = Run(index, exec, "Test Headless Limit", "")
+	_ = wOut.Close()
+
+	if err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+	<-outChan
+}
