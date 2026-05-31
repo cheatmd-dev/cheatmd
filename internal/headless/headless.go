@@ -49,7 +49,7 @@ type RunnerSession struct {
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
-func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string, out io.Writer) error {
+func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string) error {
 	session := &RunnerSession{
 		Index:   index,
 		Exec:    exec,
@@ -203,7 +203,7 @@ func (s *RunnerSession) reportCompletion(finalCmd, stdout, stderr string, runErr
 	if err != nil {
 		return fmt.Errorf("failed to encode completion output: %w", err)
 	}
-	fmt.Fprintln(s.Out, string(resBytes))
+	fmt.Println(string(resBytes))
 
 	return runErr
 }
