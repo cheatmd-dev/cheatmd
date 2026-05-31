@@ -132,7 +132,6 @@ func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) er
 	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 }
 
-
 // runCommand constructs the final command string, attaches any configured hooks,
 // executes the command on the target shell, and reports the output via JSON-RPC.
 func (s *RunnerSession) runCommand() error {
