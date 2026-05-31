@@ -307,7 +307,7 @@ func (s *RunnerSession) promptClient(promptVars []promptVar) error {
 		return err
 	}
 
-	fmt.Println(string(reqBytes))
+	fmt.Fprintln(s.Out, string(reqBytes))
 
 	if !s.Scanner.Scan() {
 		return fmt.Errorf("client connection severed unexpectedly during variable prompt")

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,14 +42,16 @@ type RunnerSession struct {
 	Cheat   *parser.Cheat
 	Vars    []resolver.VarState
 	Scanner *bufio.Scanner
+	Out     io.Writer
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
-func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string) error {
+func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string, out io.Writer) error {
 	session := &RunnerSession{
 		Index:   index,
 		Exec:    exec,
 		Scanner: bufio.NewScanner(os.Stdin),
+		Out:     out,
 	}
 	return session.Execute(initialQuery, matchCmd)
 }
@@ -194,7 +197,7 @@ func (s *RunnerSession) reportCompletion(finalCmd, stdout, stderr string, runErr
 	if err != nil {
 		return fmt.Errorf("failed to encode completion output: %w", err)
 	}
-	fmt.Println(string(resBytes))
+	fmt.Fprintln(s.Out, string(resBytes))
 
 	return runErr
 }
