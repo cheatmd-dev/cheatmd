@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 )
 
@@ -144,9 +145,19 @@ var cfg Config = DefaultConfig
 func Init() error {
 	cfg = DefaultConfig // copy defaults
 
-	shell := os.Getenv("SHELL")
-	if shell != "" {
-		cfg.Shell = shell
+	// Register every config key (derived from DefaultConfig, the single source
+	// of truth) as a viper default. Beyond providing defaults, registering the
+	// keys is what makes them visible to viper.Unmarshal — and therefore
+	// overridable via CHEATMD_* environment variables through AutomaticEnv.
+	// Without this, AutomaticEnv only affects keys already present in a loaded
+	// config file.
+	if err := registerDefaults(); err != nil {
+		return err
+	}
+
+	// $SHELL is the default shell unless a config file or CHEATMD_SHELL overrides it.
+	if shell := os.Getenv("SHELL"); shell != "" {
+		viper.SetDefault("shell", shell)
 	}
 
 	configureViper()
@@ -158,11 +169,31 @@ func Init() error {
 		}
 	}
 
-	if err := viper.Unmarshal(&cfg); err != nil {
+	// WeaklyTypedInput lets scalar CHEATMD_* env values (always strings) decode
+	// into bool/int fields, so e.g. CHEATMD_HISTORY_MAX=42 and
+	// CHEATMD_AUTO_SELECT=true take effect.
+	if err := viper.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
+		dc.WeaklyTypedInput = true
+	}); err != nil {
 		return err
 	}
 
 	return configErr
+}
+
+// registerDefaults seeds viper with a default for every config key, sourced
+// from the DefaultConfig struct (flattened via mapstructure, which honours the
+// squashed Colors/Columns sub-structs). This keeps defaults single-sourced and
+// makes all keys env-overridable.
+func registerDefaults() error {
+	var defaults map[string]any
+	if err := mapstructure.Decode(DefaultConfig, &defaults); err != nil {
+		return fmt.Errorf("register config defaults: %w", err)
+	}
+	for key, val := range defaults {
+		viper.SetDefault(key, val)
+	}
+	return nil
 }
 
 // Get returns a pointer to the global configuration
