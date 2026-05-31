@@ -307,18 +307,18 @@ func (s *RunnerSession) promptClient(promptVars []promptVar) error {
 		return err
 	}
 
-	fmt.Fprintln(s.Out, string(reqBytes))
+	fmt.Println(string(reqBytes))
 
-	var promptRes promptResponse
-	if err := s.Decoder.Decode(&promptRes); err != nil {
-		return fmt.Errorf("client connection severed unexpectedly or invalid JSON: %w", err)
+	if !s.Scanner.Scan() {
+		return fmt.Errorf("client connection severed unexpectedly during variable prompt")
 	}
 
-	if promptRes.Error != nil {
-		return fmt.Errorf("client aborted prompt: %s", promptRes.Error.Message)
+	promptRes, err := s.parsePromptResponse(s.Scanner.Text())
+	if err != nil {
+		return err
 	}
 
-	s.ingestPromptValues(promptVars, &promptRes)
+	s.ingestPromptValues(promptVars, promptRes)
 	return nil
 }
 
@@ -349,6 +349,19 @@ type promptResponse struct {
 		Message string `json:"message"`
 	} `json:"error"`
 	Id int `json:"id"`
+}
+
+func (s *RunnerSession) parsePromptResponse(line string) (*promptResponse, error) {
+	var promptRes promptResponse
+	if err := json.Unmarshal([]byte(line), &promptRes); err != nil {
+		return nil, fmt.Errorf("failed to parse client prompt response: %w", err)
+	}
+
+	if promptRes.Error != nil {
+		return nil, fmt.Errorf("client aborted prompt: %s", promptRes.Error.Message)
+	}
+
+	return &promptRes, nil
 }
 
 func (s *RunnerSession) ingestPromptValues(promptVars []promptVar, promptRes *promptResponse) {
