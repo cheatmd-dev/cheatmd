@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"regexp"
+
 	"github.com/cheatmd-dev/cheatmd/pkg/registry"
 )
 
@@ -17,8 +19,18 @@ import (
 // It first tries `git clone --depth 1`; if git is not on PATH (or the clone
 // fails), it falls back to downloading the GitHub tarball. Only .md files are
 // kept, optionally restricted to pack.Subdir.
+
+var validPackName = regexp.MustCompile("^[a-zA-Z0-9_-]+$")
+
 func Install(ctx context.Context, pack registry.Pack, destDir string) error {
+	if !validPackName.MatchString(pack.Name) {
+		return fmt.Errorf("invalid pack name %q: must contain only alphanumeric, dash, or underscore characters", pack.Name)
+	}
+
 	target := filepath.Join(destDir, pack.Name)
+	if !withinDir(destDir, target) {
+		return fmt.Errorf("invalid pack name %q: resolves outside destination directory", pack.Name)
+	}
 	backup := target + ".bak"
 
 	// If the pack exists (e.g. during an update), move it aside so we can
