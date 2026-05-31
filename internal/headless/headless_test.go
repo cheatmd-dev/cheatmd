@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
@@ -247,5 +249,85 @@ func TestRunHeadlessConditionalDependencies(t *testing.T) {
 	}
 	if completed.Params.Command != "curl https://api.example.com/api -u admin -p secret123" {
 		t.Errorf("unexpected command: %q", completed.Params.Command)
+	}
+}
+
+func TestRunHeadlessAmbiguous(t *testing.T) {
+	cheat1 := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Deploy to Staging",
+		Command: "echo staging",
+	}
+	cheat2 := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Deploy to Prod",
+		Command: "echo prod",
+	}
+
+	index := parser.NewCheatIndex()
+	index.Cheats = []*parser.Cheat{cheat1, cheat2}
+
+	exec := &mockHeadlessExecutor{}
+
+	err := Run(index, exec, "Deploy", "")
+	if err == nil {
+		t.Fatalf("expected error for ambiguous query, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguous error, got: %v", err)
+	}
+}
+
+func TestRunHeadlessIdleTimeout(t *testing.T) {
+	oldTimeout := IdleTimeout
+	IdleTimeout = 100 * time.Millisecond
+	defer func() { IdleTimeout = oldTimeout }()
+
+	cheat := &parser.Cheat{
+		File:    "test.md",
+		Header:  "Test Timeout",
+		Command: "sleep 2",
+	}
+
+	index := parser.NewCheatIndex()
+	index.Cheats = []*parser.Cheat{cheat}
+
+	oldStdout := os.Stdout
+	defer func() {
+		os.Stdout = oldStdout
+		config.Get().Output = "print"
+	}()
+	config.Get().Output = "exec"
+	config.Get().Shell = "bash"
+	rOut, wOut, _ := os.Pipe()
+	os.Stdout = wOut
+
+	exec := &mockHeadlessExecutor{
+		finalCmd: "sleep 2",
+	}
+
+	outChan := make(chan string)
+	go func() {
+		var buf strings.Builder
+		_, _ = io.Copy(&buf, rOut)
+		outChan <- buf.String()
+	}()
+
+	err := Run(index, exec, "Test Timeout", "")
+	_ = wOut.Close()
+
+	if err == nil {
+		t.Errorf("expected timeout error, got nil")
+	}
+
+	capturedStdout := <-outChan
+	lines := strings.Split(strings.TrimSpace(capturedStdout), "\n")
+	if len(lines) == 0 {
+		t.Fatalf("no output")
+	}
+	lastLine := lines[len(lines)-1]
+	if !strings.Contains(lastLine, "killed") && !strings.Contains(lastLine, "error") {
+		t.Errorf("expected killed error in output, got %s", lastLine)
 	}
 }

@@ -1,7 +1,6 @@
 package headless
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -10,12 +9,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/executor"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
+
+// IdleTimeout defines the maximum duration a command can run without producing output
+// before being forcefully killed.
+var IdleTimeout = 5 * time.Minute
 
 // Executor defines the interface required by the headless runner for shell command execution.
 type Executor interface {
@@ -41,8 +45,7 @@ type RunnerSession struct {
 	Exec    Executor
 	Cheat   *parser.Cheat
 	Vars    []resolver.VarState
-	Scanner *bufio.Scanner
-	Out     io.Writer
+	Decoder *json.Decoder
 }
 
 // Run acts as the primary entry point, constructing a session and starting the execution.
@@ -50,8 +53,7 @@ func Run(index *parser.CheatIndex, exec Executor, initialQuery, matchCmd string,
 	session := &RunnerSession{
 		Index:   index,
 		Exec:    exec,
-		Scanner: bufio.NewScanner(os.Stdin),
-		Out:     out,
+		Decoder: json.NewDecoder(os.Stdin),
 	}
 	return session.Execute(initialQuery, matchCmd)
 }
@@ -81,11 +83,12 @@ func (s *RunnerSession) findTargetCheat(initialQuery, matchCmd string) error {
 	}
 
 	query := s.resolveInitialQuery(initialQuery, matchCmd)
-	if s.tryMatchByQuery(cheats, query) {
+	err := s.tryMatchByQuery(cheats, query)
+	if err == nil {
 		return nil
 	}
 
-	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
+	return err
 }
 
 func (s *RunnerSession) resolveInitialQuery(initialQuery, matchCmd string) string {
@@ -108,21 +111,24 @@ func (s *RunnerSession) tryMatchByCommand(cheats []*parser.Cheat, matchCmd strin
 	return true
 }
 
-func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) bool {
+func (s *RunnerSession) tryMatchByQuery(cheats []*parser.Cheat, query string) error {
 	if query == "" {
-		return false
+		return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 	}
 	words := strings.Fields(strings.ToLower(query))
 	matchedCheats := s.filterCheatsByWords(cheats, words)
 	s.Cheat = s.findExactHeaderMatch(matchedCheats, query)
 	if s.Cheat != nil {
-		return true
+		return nil
 	}
-	if len(matchedCheats) > 0 {
+	if len(matchedCheats) == 1 {
 		s.Cheat = matchedCheats[0]
-		return true
+		return nil
 	}
-	return false
+	if len(matchedCheats) > 1 {
+		return fmt.Errorf("headless query %q is ambiguous, matches %d cheats", query, len(matchedCheats))
+	}
+	return fmt.Errorf("headless runner requires a precise query or match command to isolate a single cheat block")
 }
 
 func (s *RunnerSession) filterCheatsByWords(cheats []*parser.Cheat, words []string) []*parser.Cheat {
@@ -212,16 +218,43 @@ func (s *RunnerSession) determineRunStatus(err error) (string, string) {
 // Helper Utilities
 // -----------------------------------------------------------------------------
 
+// trackingWriter resets a timer upon every write operation.
+type trackingWriter struct {
+	w       io.Writer
+	onWrite func()
+}
+
+func (t *trackingWriter) Write(p []byte) (n int, err error) {
+	t.onWrite()
+	return t.w.Write(p)
+}
+
 // runCommandAndCapture shells out the given command and intercepts both standard streams.
+// It kills the process if it produces no output for IdleTimeout.
 func runCommandAndCapture(shell, command string) (string, string, error) {
 	cmd := exec.Command(shell, "-c", command)
 	cmd.Env = os.Environ()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
 
-	err := cmd.Run()
+	timer := time.AfterFunc(IdleTimeout, func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	})
+	defer timer.Stop()
+
+	resetTimer := func() {
+		timer.Reset(IdleTimeout)
+	}
+
+	cmd.Stdout = &trackingWriter{w: &stdoutBuf, onWrite: resetTimer}
+	cmd.Stderr = &trackingWriter{w: &stderrBuf, onWrite: resetTimer}
+
+	if err := cmd.Start(); err != nil {
+		return "", "", err
+	}
+	err := cmd.Wait()
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
