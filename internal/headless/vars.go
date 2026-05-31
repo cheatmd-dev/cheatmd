@@ -307,7 +307,7 @@ func (s *RunnerSession) promptClient(promptVars []promptVar) error {
 		return err
 	}
 
-	fmt.Println(string(reqBytes))
+	fmt.Fprintln(s.Out, string(reqBytes))
 
 	var promptRes promptResponse
 	if err := s.Decoder.Decode(&promptRes); err != nil {

@@ -94,7 +94,7 @@ func TestRunHeadlessSuccess(t *testing.T) {
 	}()
 
 	// 3. Run Headless function
-	err = Run(index, exec, "Test Headless", "")
+	err = Run(index, exec, "Test Headless", "", os.Stdout)
 	_ = wOut.Close() // Close stdout writing so copy goroutine finishes
 
 	if err != nil {
@@ -222,7 +222,7 @@ func TestRunHeadlessConditionalDependencies(t *testing.T) {
 		outChan <- buf.String()
 	}()
 
-	err = Run(index, exec, "Test Dynamic Resolution", "")
+	err = Run(index, exec, "Test Dynamic Resolution", "", os.Stdout)
 	_ = wOut.Close()
 
 	if err != nil {
@@ -269,7 +269,7 @@ func TestRunHeadlessAmbiguous(t *testing.T) {
 
 	exec := &mockHeadlessExecutor{}
 
-	err := Run(index, exec, "Deploy", "")
+	err := Run(index, exec, "Deploy", "", os.Stdout)
 	if err == nil {
 		t.Fatalf("expected error for ambiguous query, got nil")
 	}
@@ -314,7 +314,7 @@ func TestRunHeadlessIdleTimeout(t *testing.T) {
 		outChan <- buf.String()
 	}()
 
-	err := Run(index, exec, "Test Timeout", "")
+	err := Run(index, exec, "Test Timeout", "", os.Stdout)
 	_ = wOut.Close()
 
 	if err == nil {

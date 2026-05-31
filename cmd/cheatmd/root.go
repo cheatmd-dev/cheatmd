@@ -166,7 +166,9 @@ func executeHeadlessOrTUI(cmd *cobra.Command, index *parser.CheatIndex, exec *ex
 	match, _ := cmd.Flags().GetString("match")
 
 	if headlessFlag, _ := cmd.Flags().GetBool("headless"); headlessFlag {
-		return headless.Run(index, exec, query, match)
+		headlessOut := os.Stdout
+		os.Stdout = os.Stderr
+		return headless.Run(index, exec, query, match, headlessOut)
 	}
 
 	var finalCmd string
