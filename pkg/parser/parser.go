@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -99,11 +100,13 @@ func parseFilesParallel(files []string) []parseResult {
 			var localDuplicates []DuplicateExport
 
 			for _, path := range fileChunk {
-				if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
-					localParser.index = NewCheatIndex()
-					localParser.parseLines(path, data)
-					localCheats = append(localCheats, localParser.index.Cheats...)
-					localModules = mergeModules(localModules, &localDuplicates, localParser.index.Modules)
+				if info, err := os.Stat(path); err == nil && info.Size() <= 5*1024*1024 {
+					if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+						localParser.index = NewCheatIndex()
+						localParser.parseLines(path, data)
+						localCheats = append(localCheats, localParser.index.Cheats...)
+						localModules = mergeModules(localModules, &localDuplicates, localParser.index.Modules)
+					}
 				}
 			}
 			resultChan <- parseResult{cheats: localCheats, modules: localModules, duplicates: localDuplicates, errors: localParser.index.Errors}
@@ -163,6 +166,11 @@ func mergeModules(target map[string]*Module, duplicates *[]DuplicateExport, sour
 // ParseSingleFile parses a single markdown file
 func (p *Parser) ParseSingleFile(path string) (*CheatIndex, error) {
 	p.index.Root = path
+	if info, err := os.Stat(path); err != nil {
+		return nil, err
+	} else if info.Size() > 5*1024*1024 {
+		return nil, fmt.Errorf("file exceeds 5MB size limit")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
