@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -128,6 +129,8 @@ func runPacksUpdate(cmd *cobra.Command, args []string) error {
 	return runPacksModify(cmd, args, "updated")
 }
 
+var validPackName = regexp.MustCompile("^[a-zA-Z0-9_-]+$")
+
 func runPacksRemove(cmd *cobra.Command, args []string) error {
 	dest := config.CheatsInstallDir()
 	manifest, err := packmanifest.Load(dest)
@@ -138,6 +141,10 @@ func runPacksRemove(cmd *cobra.Command, args []string) error {
 	out := cmd.OutOrStdout()
 	removed := 0
 	for _, name := range args {
+		if !validPackName.MatchString(name) {
+			fmt.Fprintf(out, "Invalid pack name %q\n", name)
+			continue
+		}
 		if !manifest.Has(name) {
 			fmt.Fprintf(out, "Pack %q is not installed.\n", name)
 			continue
