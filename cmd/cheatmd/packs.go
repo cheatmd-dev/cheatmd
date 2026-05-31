@@ -1,6 +1,7 @@
 package main
 
 import (
+"strings"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,8 +16,8 @@ import (
 )
 
 var packsCmd = &cobra.Command{
-	Use:   "packs",
-	Short: "Browse and install cheat packs from the registry",
+	Use:	"packs",
+	Short:	"Browse and install cheat packs from the registry",
 	Long: `Browse and install community cheat packs from the registry.
 
 The registry is a YAML manifest of installable cheat repositories, configured
@@ -25,29 +26,29 @@ via the registry_url setting. Installed packs land in the cheats directory
 }
 
 var packsListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List available cheat packs",
-	Args:  cobra.NoArgs,
-	RunE:  runPacksList,
+	Use:	"list",
+	Short:	"List available cheat packs",
+	Args:	cobra.NoArgs,
+	RunE:	runPacksList,
 }
 
 var packsInstallCmd = &cobra.Command{
-	Use:   "install [name...]",
-	Short: "Install cheat packs (interactive picker when no names are given)",
-	RunE:  runPacksInstall,
+	Use:	"install [name...]",
+	Short:	"Install cheat packs (interactive picker when no names are given)",
+	RunE:	runPacksInstall,
 }
 
 var packsUpdateCmd = &cobra.Command{
-	Use:   "update [name...]",
-	Short: "Update installed cheat packs",
-	RunE:  runPacksUpdate,
+	Use:	"update [name...]",
+	Short:	"Update installed cheat packs",
+	RunE:	runPacksUpdate,
 }
 
 var packsRemoveCmd = &cobra.Command{
-	Use:   "remove [name...]",
-	Short: "Remove installed cheat packs",
-	Args:  cobra.MinimumNArgs(1),
-	RunE:  runPacksRemove,
+	Use:	"remove [name...]",
+	Short:	"Remove installed cheat packs",
+	Args:	cobra.MinimumNArgs(1),
+	RunE:	runPacksRemove,
 }
 
 func init() {
@@ -58,7 +59,7 @@ func init() {
 }
 
 func runPacksList(cmd *cobra.Command, args []string) error {
-	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
+	reg, err := registry.Fetch(cmd.Context(), config.Get().RegistryURL)
 	if err != nil {
 		return fmt.Errorf("fetch registry: %w", err)
 	}
@@ -90,7 +91,7 @@ func runPacksList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runPacksInstall(cmd *cobra.Command, args []string) error {
+func runPacksModify(cmd *cobra.Command, args []string, verb string) error {
 	chosen, err := fetchAndChoosePacks(cmd, args)
 	if err != nil {
 		return err
@@ -101,29 +102,30 @@ func runPacksInstall(cmd *cobra.Command, args []string) error {
 
 	out := cmd.ErrOrStderr()
 	dest, installed := installPacks(cmd.Context(), out, chosen)
-	fmt.Fprintf(out, "Installed %d pack(s) into %s\n", installed, dest)
+
+	// Capitalize verb for output
+	capitalizedVerb := strings.ToUpper(verb[:1]) + verb[1:]
+
+	fmt.Fprintf(out, "%s %d pack(s) in %s\n", capitalizedVerb, installed, dest)
 	if installed < len(chosen) {
-		return fmt.Errorf("%d of %d pack(s) failed to install", len(chosen)-installed, len(chosen))
+		// "install" -> "install", "update" -> "update"
+		action := verb
+		if verb == "updated" {
+			action = "update"
+		} else if verb == "installed" {
+			action = "install"
+		}
+		return fmt.Errorf("%d of %d pack(s) failed to %s", len(chosen)-installed, len(chosen), action)
 	}
 	return nil
 }
 
-func runPacksUpdate(cmd *cobra.Command, args []string) error {
-	chosen, err := fetchAndChoosePacks(cmd, args)
-	if err != nil {
-		return err
-	}
-	if len(chosen) == 0 {
-		return nil
-	}
+func runPacksInstall(cmd *cobra.Command, args []string) error {
+	return runPacksModify(cmd, args, "installed")
+}
 
-	out := cmd.ErrOrStderr()
-	dest, installed := installPacks(cmd.Context(), out, chosen)
-	fmt.Fprintf(out, "Updated %d pack(s) in %s\n", installed, dest)
-	if installed < len(chosen) {
-		return fmt.Errorf("%d of %d pack(s) failed to update", len(chosen)-installed, len(chosen))
-	}
-	return nil
+func runPacksUpdate(cmd *cobra.Command, args []string) error {
+	return runPacksModify(cmd, args, "updated")
 }
 
 func runPacksRemove(cmd *cobra.Command, args []string) error {
@@ -163,7 +165,7 @@ func runPacksRemove(cmd *cobra.Command, args []string) error {
 // fetchAndChoosePacks handles the common setup of fetching the registry
 // and showing the picker (or parsing args) for both install and update.
 func fetchAndChoosePacks(cmd *cobra.Command, args []string) ([]registry.Pack, error) {
-	reg, err := registry.Fetch(cmd.Context(), config.GetRegistryURL())
+	reg, err := registry.Fetch(cmd.Context(), config.Get().RegistryURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetch registry: %w", err)
 	}
