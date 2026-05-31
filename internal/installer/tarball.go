@@ -60,6 +60,11 @@ func extractMarkdownTarball(r io.Reader, subdir, dest string) (int, error) {
 	subdir = normalizeSubdir(subdir)
 
 	count := 0
+	var totalBytes int64
+	const maxFiles = 5000
+	const maxTotalBytes = 50 * 1024 * 1024 // 50MB
+	const maxFileSize = 5 * 1024 * 1024    // 5MB
+
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
@@ -74,6 +79,18 @@ func extractMarkdownTarball(r io.Reader, subdir, dest string) (int, error) {
 		if !keep {
 			continue
 		}
+
+		if count >= maxFiles {
+			return count, fmt.Errorf("tarball exceeds maximum allowed files (%d)", maxFiles)
+		}
+		if hdr.Size > maxFileSize {
+			return count, fmt.Errorf("tar entry %q exceeds maximum file size (5MB)", hdr.Name)
+		}
+		totalBytes += hdr.Size
+		if totalBytes > maxTotalBytes {
+			return count, fmt.Errorf("tarball exceeds maximum extracted size (50MB)")
+		}
+
 		if err := writeTarEntry(tr, hdr, dest, rel); err != nil {
 			return count, err
 		}
