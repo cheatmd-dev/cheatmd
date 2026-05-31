@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -486,6 +487,8 @@ func (p *Parser) processPendingBlocks(path string, s *parseState) {
 // ============================================================================
 
 // createCheat creates a new cheat from parsed data
+var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))")
+
 func (p *Parser) createCheat(path string, s *parseState, block codeBlock, cheatBlock string, hasCheatBlock bool, cheatLine int) *Cheat {
 	cheat := NewCheat(path, s.currentHeader)
 	cheat.HeaderLine = s.currentHeaderLine
@@ -496,6 +499,14 @@ func (p *Parser) createCheat(path string, s *parseState, block codeBlock, cheatB
 	cheat.CommandEnd = block.endLine
 	cheat.HasCheatBlock = hasCheatBlock
 	cheat.Tags = p.buildCheatTags(path, s)
+
+	if ansiRegex.MatchString(cheat.Header) || ansiRegex.MatchString(cheat.Description) || ansiRegex.MatchString(cheat.Command) {
+		p.index.Errors = append(p.index.Errors, ParseError{
+			File:    path,
+			Line:    cheatLine,
+			Message: "cheat contains raw ANSI escape sequences which will be sanitized",
+		})
+	}
 
 	if cheat.Header == "" && hasCheatBlock {
 		p.index.Errors = append(p.index.Errors, ParseError{
