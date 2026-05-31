@@ -172,17 +172,17 @@ func cheatmdGlamourStyle() ansi.StyleConfig {
 		H5:			cheatmdHeadingStyleLevel("##### ", ""),
 		H6:			cheatmdHeadingStyleLevelDim("###### "),
 		Strikethrough:		ansi.StylePrimitive{CrossedOut: bPtr(true)},
-		Emph:			ansi.StylePrimitive{Italic: bPtr(true), Color: sPtr(config.Get().Colors.Desc)},
-		Strong:			ansi.StylePrimitive{Bold: bPtr(true), Color: sPtr(config.Get().Colors.Desc)},
-		HorizontalRule:		ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Border), Format: "\n────────\n"},
+		Emph:			ansi.StylePrimitive{Italic: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
+		Strong:			ansi.StylePrimitive{Bold: bPtr(true), Color: cPtr(config.Get().Colors.Desc)},
+		HorizontalRule:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Border), Format: "\n────────\n"},
 		Item:			ansi.StylePrimitive{BlockPrefix: "• "},
 		Enumeration:		ansi.StylePrimitive{BlockPrefix: ". "},
 		Task:			ansi.StyleTask{StylePrimitive: ansi.StylePrimitive{}, Ticked: "[✓] ", Unticked: "[ ] "},
-		Link:			ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Path), Underline: bPtr(true)},
-		LinkText:		ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Path), Bold: bPtr(true)},
-		Image:			ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Path), Underline: bPtr(true)},
-		ImageText:		ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Dim), Format: "Image: {{.text}} →"},
-		Code:			ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: " ", Suffix: " ", Color: sPtr(config.Get().Colors.Command)}},
+		Link:			ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
+		LinkText:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Bold: bPtr(true)},
+		Image:			ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Path), Underline: bPtr(true)},
+		ImageText:		ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim), Format: "Image: {{.text}} →"},
+		Code:			ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Prefix: " ", Suffix: " ", Color: cPtr(config.Get().Colors.Command)}},
 		CodeBlock:		cheatmdCodeBlockStyle(margin),
 		Table:			ansi.StyleTable{StyleBlock: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{}}},
 		DefinitionDescription:	ansi.StylePrimitive{BlockPrefix: "\n→ "},
@@ -191,19 +191,32 @@ func cheatmdGlamourStyle() ansi.StyleConfig {
 }
 
 func sPtr(s string) *string	{ return &s }
+
+func cPtr(code string) *string {
+	ansiMap := map[string]string{
+		"30": "0", "31": "1", "32": "2", "33": "3",
+		"34": "4", "35": "5", "36": "6", "37": "7",
+		"90": "8", "91": "9", "92": "10", "93": "11",
+		"94": "12", "95": "13", "96": "14", "97": "15",
+	}
+	if translated, ok := ansiMap[code]; ok {
+		return &translated
+	}
+	return &code
+}
 func bPtr(v bool) *bool		{ return &v }
 func uPtr(v uint) *uint		{ return &v }
 
 func cheatmdDocumentStyle(margin uint) ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive:	ansi.StylePrimitive{BlockPrefix: "\n", BlockSuffix: "\n", Color: sPtr(config.Get().Colors.Desc)},
+		StylePrimitive:	ansi.StylePrimitive{BlockPrefix: "\n", BlockSuffix: "\n", Color: cPtr(config.Get().Colors.Desc)},
 		Margin:		uPtr(margin),
 	}
 }
 
 func cheatmdBlockQuoteStyle() ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive:	ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Dim)},
+		StylePrimitive:	ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Dim)},
 		Indent:		uPtr(1),
 		IndentToken:	sPtr("│ "),
 	}
@@ -211,26 +224,26 @@ func cheatmdBlockQuoteStyle() ansi.StyleBlock {
 
 func cheatmdHeadingStyle(bold bool) ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive: ansi.StylePrimitive{BlockSuffix: "\n", Color: sPtr(config.Get().Colors.Header), Bold: bPtr(bold)},
+		StylePrimitive: ansi.StylePrimitive{BlockSuffix: "\n", Color: cPtr(config.Get().Colors.Header), Bold: bPtr(bold)},
 	}
 }
 
 func cheatmdHeadingStyleLevel(prefix, suffix string) ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive: ansi.StylePrimitive{Prefix: prefix, Suffix: suffix, Color: sPtr(config.Get().Colors.Header), Bold: bPtr(true)},
+		StylePrimitive: ansi.StylePrimitive{Prefix: prefix, Suffix: suffix, Color: cPtr(config.Get().Colors.Header), Bold: bPtr(true)},
 	}
 }
 
 func cheatmdHeadingStyleLevelDim(prefix string) ansi.StyleBlock {
 	return ansi.StyleBlock{
-		StylePrimitive: ansi.StylePrimitive{Prefix: prefix, Color: sPtr(config.Get().Colors.Dim)},
+		StylePrimitive: ansi.StylePrimitive{Prefix: prefix, Color: cPtr(config.Get().Colors.Dim)},
 	}
 }
 
 func cheatmdCodeBlockStyle(margin uint) ansi.StyleCodeBlock {
 	return ansi.StyleCodeBlock{
 		StyleBlock: ansi.StyleBlock{
-			StylePrimitive:	ansi.StylePrimitive{Color: sPtr(config.Get().Colors.Command)},
+			StylePrimitive:	ansi.StylePrimitive{Color: cPtr(config.Get().Colors.Command)},
 			Margin:		uPtr(margin),
 		},
 	}
