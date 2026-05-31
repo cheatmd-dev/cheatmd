@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/cheatmd-dev/cheatmd/pkg/history"
+	"github.com/cheatmd-dev/cheatmd/internal/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 

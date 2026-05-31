@@ -10,10 +10,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/cheatmd-dev/cheatmd/internal/history"
 	"github.com/cheatmd-dev/cheatmd/internal/resolver"
 	"github.com/cheatmd-dev/cheatmd/pkg/chainstate"
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
-	"github.com/cheatmd-dev/cheatmd/pkg/history"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
