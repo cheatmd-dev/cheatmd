@@ -41,7 +41,9 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		return nil
 	case "tab":
-		return m.handleVarResolveTab(msg)
+		return m.handleVarResolveTab(msg, 1)
+	case "shift+tab":
+		return m.handleVarResolveTab(msg, -1)
 	case " ":
 		if cmd := m.handleVarResolveSpace(msg); cmd != nil {
 			return cmd
@@ -85,8 +87,8 @@ func (m *mainModel) handleVarResolveNavKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg) tea.Cmd {
-	if m.completePathFromInput() {
+func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg, dir int) tea.Cmd {
+	if m.completePathFromInput(dir) {
 		return func() tea.Msg { return nil } // bypass text input to preserve completion state
 	}
 	if !m.varState.isPromptOnly && m.varState.picker != nil {
@@ -143,7 +145,7 @@ func (m *mainModel) handleVarResolveDefaultKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *mainModel) completePathFromInput() bool {
+func (m *mainModel) completePathFromInput(dir int) bool {
 	if m.varState == nil {
 		return false
 	}
@@ -151,11 +153,20 @@ func (m *mainModel) completePathFromInput() bool {
 	// If path picker is active, this is a tab cycle request
 	if m.varState.pathPicker != nil && len(m.varState.pathPicker.Filtered) > 0 {
 		p := m.varState.pathPicker
-		if p.Cursor >= len(p.Filtered)-1 {
-			p.Cursor = 0
-			p.Offset = 0
+		if dir > 0 {
+			if p.Cursor >= len(p.Filtered)-1 {
+				p.Cursor = 0
+				p.Offset = 0
+			} else {
+				p.MoveCursor(1)
+			}
 		} else {
-			p.MoveCursor(1)
+			if p.Cursor <= 0 {
+				p.Cursor = len(p.Filtered) - 1
+				p.Offset = max(0, p.Cursor-9)
+			} else {
+				p.MoveCursor(-1)
+			}
 		}
 
 		if opt, ok := p.Selected(); ok {
