@@ -94,7 +94,20 @@ func readComposeCommand(args []string) (string, error) {
 }
 
 func buildComposeMarkdown(name, desc, command string) string {
-	vars := parser.ExtractVars(command)
+	// Always extract both syntaxes to catch whatever the user pasted
+	vars := parser.ExtractVars(command, true, true)
+
+	// Rewrite the command to respect the user's configured var_syntax
+	switch config.Get().VarSyntax {
+	case "dollar", "":
+		for _, v := range vars {
+			command = strings.ReplaceAll(command, "<"+v+">", "$"+v)
+		}
+	case "angle":
+		for _, v := range vars {
+			command = strings.ReplaceAll(command, "$"+v, "<"+v+">")
+		}
+	}
 
 	var sb strings.Builder
 	sb.WriteString("\n# ")
@@ -106,17 +119,17 @@ func buildComposeMarkdown(name, desc, command string) string {
 		sb.WriteString("\n\n")
 	}
 
+	sb.WriteString("```sh title:\"\"\n")
+	sb.WriteString(command)
+	sb.WriteString("\n```\n")
+
 	if len(vars) > 0 {
 		sb.WriteString("<!-- cheat\n")
 		for _, v := range vars {
 			sb.WriteString(fmt.Sprintf("var %s\n", v))
 		}
-		sb.WriteString("-->\n\n")
+		sb.WriteString("-->\n")
 	}
-
-	sb.WriteString("```sh\n")
-	sb.WriteString(command)
-	sb.WriteString("\n```\n")
 
 	return sb.String()
 }
