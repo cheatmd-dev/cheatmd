@@ -101,12 +101,16 @@ func ParseSelectorOpts(selectorArgs string) SelectOptions {
 			}
 		case "--column":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.Column)
+				if _, err := fmt.Sscanf(args[i+1], "%d", &opts.Column); err != nil {
+					opts.Column = 0
+				}
 				i++
 			}
 		case "--select-column":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &opts.SelectColumn)
+				if _, err := fmt.Sscanf(args[i+1], "%d", &opts.SelectColumn); err != nil {
+					opts.SelectColumn = 0
+				}
 				i++
 			}
 		case "--map":

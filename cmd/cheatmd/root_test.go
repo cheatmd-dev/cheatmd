@@ -23,11 +23,15 @@ func TestHeadlessStdoutRedirect(t *testing.T) {
 	os.Stdout.WriteString("warning: duplicate export\n")
 
 	// Simulate headless writing json
-	headlessOut.WriteString(`{"jsonrpc":"2.0"}` + "\n")
+	if _, err := headlessOut.WriteString(`{"jsonrpc":"2.0"}` + "\n"); err != nil {
+		t.Fatalf("failed to write headless output: %v", err)
+	}
 	w.Close()
 
 	var buf strings.Builder
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	if strings.Contains(output, "warning") {

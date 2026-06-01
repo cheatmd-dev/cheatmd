@@ -84,7 +84,9 @@ func TestLoadEdgeCases(t *testing.T) {
 
 	// 2. Corrupt file should return empty state without crashing
 	path := filepath.Join(tmpDir, "corrupt.json")
-	os.WriteFile(path, []byte("{ invalid json"), 0o644)
+	if err := os.WriteFile(path, []byte("{ invalid json"), 0o644); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
 	state, err = Load(path)
 	if err != nil {
 		t.Errorf("Corrupt file should not error out completely, should recover empty state. Got error: %v", err)
@@ -95,7 +97,9 @@ func TestLoadEdgeCases(t *testing.T) {
 
 	// 3. Empty file
 	pathEmpty := filepath.Join(tmpDir, "empty.json")
-	os.WriteFile(pathEmpty, []byte(""), 0o644)
+	if err := os.WriteFile(pathEmpty, []byte(""), 0o644); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
 	state, err = Load(pathEmpty)
 	if err != nil {
 		t.Errorf("Empty file should not error, got: %v", err)

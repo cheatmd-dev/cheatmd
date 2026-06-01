@@ -658,16 +658,6 @@ func hasFinding(findings []Finding, substr string) bool {
 	return false
 }
 
-func countFindings(findings []Finding, substr string) int {
-	count := 0
-	for _, f := range findings {
-		if strings.Contains(f.Message, substr) {
-			count++
-		}
-	}
-	return count
-}
-
 func formatFindings(findings []Finding) string {
 	var b strings.Builder
 	for _, f := range findings {

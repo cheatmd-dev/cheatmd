@@ -119,9 +119,7 @@ func collectHistoryOptions() []substituteOption {
 		}
 		entries = append(entries, extractAssignments(line)...)
 	}
-	if err := scanner.Err(); err != nil {
-		// Log or handle, but return whatever we parsed so far for resilience
-	}
+	_ = scanner.Err() // return whatever we parsed so far for resilience
 
 	// Newest first, dedupe by "name=value".
 	seen := make(map[string]struct{}, len(entries))
