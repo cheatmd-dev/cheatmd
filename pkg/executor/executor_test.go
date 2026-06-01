@@ -176,3 +176,66 @@ func TestBuildFinalCommand(t *testing.T) {
 		t.Errorf("BuildFinalCommand() = %q, want %q", got, want)
 	}
 }
+
+func TestRunShell(t *testing.T) {
+	exec := NewExecutor(parser.NewCheatIndex())
+	exec.shell = "bash" // enforce shell for test
+
+	out, err := exec.RunShell("echo -n 'hello world'")
+	if err != nil {
+		t.Fatalf("RunShell failed: %v", err)
+	}
+	if out != "hello world" {
+		t.Errorf("RunShell() = %q, want 'hello world'", out)
+	}
+
+	// Test trailing whitespace trimming
+	out, err = exec.RunShell("echo '  hello whitespace  '")
+	if err != nil {
+		t.Fatalf("RunShell failed: %v", err)
+	}
+	if out != "hello whitespace" {
+		t.Errorf("RunShell() trimmed = %q, want 'hello whitespace'", out)
+	}
+
+	// Test shell error
+	_, err = exec.RunShell("exit 1")
+	if err == nil {
+		t.Errorf("expected RunShell to fail on exit 1")
+	}
+}
+
+func TestExecute(t *testing.T) {
+	exec := NewExecutor(parser.NewCheatIndex())
+	exec.shell = "bash"
+
+	// Just verifying it doesn't error on a simple command
+	err := exec.Execute("true")
+	if err != nil {
+		t.Errorf("Execute('true') failed: %v", err)
+	}
+
+	err = exec.Execute("false")
+	if err == nil {
+		t.Errorf("Execute('false') expected error, got nil")
+	}
+}
+
+func TestOutputWithMode_Exec(t *testing.T) {
+	exec := NewExecutor(parser.NewCheatIndex())
+	exec.shell = "bash"
+
+	err := exec.OutputWithMode("true", OutputExec)
+	if err != nil {
+		t.Errorf("OutputWithMode(OutputExec) failed: %v", err)
+	}
+}
+
+func TestOutputWithMode_Print(t *testing.T) {
+	exec := NewExecutor(parser.NewCheatIndex())
+	// Print does nothing but return nil
+	err := exec.OutputWithMode("echo foo", OutputPrint)
+	if err != nil {
+		t.Errorf("OutputWithMode(OutputPrint) failed: %v", err)
+	}
+}
