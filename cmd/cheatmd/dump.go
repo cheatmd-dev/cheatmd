@@ -51,9 +51,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	if useCSV && useJSON {
 		return fmt.Errorf("choose only one dump format: --csv or --json")
 	}
-	if !useCSV && !useJSON {
-		useJSON = true
-	}
+
 
 	index, err := parseDumpIndex(args)
 	if err != nil {
