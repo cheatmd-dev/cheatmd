@@ -45,7 +45,7 @@ func (m *mainModel) handleVarResolveKey(msg tea.KeyMsg) tea.Cmd {
 	case "shift+tab":
 		return m.handleVarResolveTab(msg, -1)
 	case " ":
-		if cmd := m.handleVarResolveSpace(msg); cmd != nil {
+		if cmd := m.handleVarResolveSpace(); cmd != nil {
 			return cmd
 		}
 	default:
@@ -68,10 +68,9 @@ func (m *mainModel) handleVarResolveNavKey(msg tea.KeyMsg) tea.Cmd {
 			vs.value = ""
 			vs.skipAutoCont = true
 			m.textInput.SetValue("")
-			if m.varState.picker != nil {
-				m.picker.Cursor = 0
-				m.picker.Offset = 0
-			}
+			m.varState.picker = nil
+			m.varState.options = nil
+			m.varState.isPromptOnly = false
 			return m.prepareCurrentVar()
 		}
 		m.phase = phaseCheatSelect
@@ -125,7 +124,7 @@ func (m *mainModel) handleVarResolveTab(msg tea.KeyMsg, dir int) tea.Cmd {
 	return nil
 }
 
-func (m *mainModel) handleVarResolveSpace(msg tea.KeyMsg) tea.Cmd {
+func (m *mainModel) handleVarResolveSpace() tea.Cmd {
 	if m.varState.selectOpts.Multi && !m.varState.isPromptOnly && m.varState.picker != nil {
 		if opt, ok := m.varState.picker.Selected(); ok {
 			vs := &m.varState.vars[m.varState.currentIdx]
@@ -320,6 +319,14 @@ func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
 
 	m.textInput.SetValue("")
 	m.clearPathCompletions()
+	
+	// Clear the UI state for the current variable so that during the next render
+	// (or the final quit render) we don't attempt to render the old picker 
+	// using the new out-of-bounds currentIdx.
+	m.varState.picker = nil
+	m.varState.options = nil
+	m.varState.isPromptOnly = false
+
 	m.picker.Cursor = 0
 	m.picker.Offset = 0
 
