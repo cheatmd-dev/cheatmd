@@ -1,3 +1,6 @@
+// Package ui implements the primary BubbleTea Terminal User Interface (TUI)
+// for navigating cheats, resolving variables interactively, and previewing
+// markdown documentation.
 package ui
 
 import (

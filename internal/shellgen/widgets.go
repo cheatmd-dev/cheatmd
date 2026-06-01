@@ -1,3 +1,6 @@
+// Package shellgen generates shell scripts for bash and zsh bindings and widgets
+// (such as the ctrl+g interactive widget) that integrate cheatmd natively into
+// the user's shell environment.
 package shellgen
 
 import (
@@ -7,6 +10,9 @@ import (
 	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
+// BashWidget returns a bash script that binds the configured key to an
+// interactive cheatmd widget, replacing the current command line with the
+// selected command.
 func BashWidget() string {
 	keyWidget := config.Get().KeyWidget
 	return fmt.Sprintf(`#!/usr/bin/env bash
@@ -35,6 +41,9 @@ fi
 `, keyWidget)
 }
 
+// ZshWidget returns a zsh script that binds the configured key to an
+// interactive cheatmd widget, replacing the current command line with the
+// selected command.
 func ZshWidget() string {
 	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to zsh format (e.g., \C-g -> ^g)
@@ -64,6 +73,9 @@ bindkey '%s' _cheatmd_widget
 `, zshKey)
 }
 
+// FishWidget returns a fish script that binds the configured key to an
+// interactive cheatmd widget, replacing the current command line with the
+// selected command.
 func FishWidget() string {
 	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to fish format (e.g., \C-g -> \cg)

@@ -1,3 +1,6 @@
+// Package headless provides headless execution of cheats without a TUI.
+// It is utilized when variable resolution can be completed automatically
+// or via command-line flags, bypassing the interactive UI entirely.
 package headless
 
 import (
@@ -206,6 +209,8 @@ type trackingWriter struct {
 	onWrite func()
 }
 
+// Write fires the onWrite callback (resetting the idle timer) and forwards the
+// bytes to the underlying writer.
 func (t *trackingWriter) Write(p []byte) (n int, err error) {
 	t.onWrite()
 	return t.w.Write(p)

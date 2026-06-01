@@ -12,7 +12,6 @@ import (
 
 // Get fetches the given URL with a GET request, returning the response body if
 // the status code is 200 OK. The caller is responsible for closing the body.
-
 func Get(ctx context.Context, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

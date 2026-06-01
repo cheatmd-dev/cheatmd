@@ -8,6 +8,7 @@ import (
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
+// RefKind enumerates the different types of semantic references found in cheatmd Markdown.
 type RefKind int
 
 const (
@@ -18,6 +19,7 @@ const (
 	refUnknownParam RefKind = 99
 )
 
+// Ref represents a single parsed reference (like a variable or an import) within the AST.
 type Ref struct {
 	Name   string
 	Kind   RefKind

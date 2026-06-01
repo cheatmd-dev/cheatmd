@@ -1,3 +1,7 @@
+// Package parser is the foundational Markdown engine for cheatmd. It reads
+// Markdown files, extracting code blocks, metadata, variable bindings, and
+// module scopes into a unified Abstract Syntax Tree (AST) that the rest of
+// the application utilizes.
 package parser
 
 import (

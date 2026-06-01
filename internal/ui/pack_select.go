@@ -70,8 +70,11 @@ func RunPackPicker(packs []registry.Pack, installed map[string]bool) ([]registry
 	return chosen, nil
 }
 
+// Init implements tea.Model; the pack picker has no startup command.
 func (m *packPickerModel) Init() tea.Cmd { return nil }
 
+// Update implements tea.Model, handling navigation, per-row toggles, select
+// all/none, and confirm/cancel.
 func (m *packPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -122,6 +125,7 @@ func (m *packPickerModel) itemIndex(cursor int) int {
 	return -1
 }
 
+// View implements tea.Model, rendering the checkbox list of packs.
 func (m *packPickerModel) View() string {
 	var b strings.Builder
 

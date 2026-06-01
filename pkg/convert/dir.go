@@ -128,6 +128,9 @@ func ConvertFile(format, inputPath, outputPath string) error {
 	return nil
 }
 
+// ConvertDirectory scans the input directory for legacy cheat sheet files
+// matching the specified format (e.g., "navi") and converts them into standard
+// cheatmd Markdown files in the output directory.
 func ConvertDirectory(format, inputDir, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)

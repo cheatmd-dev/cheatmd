@@ -35,6 +35,7 @@ const (
 	SeverityWarning
 )
 
+// String returns the lowercase name of the severity ("error" or "warning").
 func (s Severity) String() string {
 	switch s {
 	case SeverityError:
