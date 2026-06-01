@@ -24,7 +24,7 @@ func TestExtractVars(t *testing.T) {
 		{
 			name:    "mixed syntax",
 			command: "ssh $user@<host> -p $port",
-			want:    []string{"user", "port", "host"},
+			want:    []string{"user", "host", "port"},
 		},
 		{
 			name:    "duplicates removed",
@@ -45,7 +45,7 @@ func TestExtractVars(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractVars(tt.command)
+			got := ExtractVars(tt.command, true, true)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ExtractVars() = %v, want %v", got, tt.want)
 			}
