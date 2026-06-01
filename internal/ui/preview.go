@@ -61,7 +61,7 @@ func (m *mainModel) enterPreview(c *parser.Cheat) bool {
 	// Aggressively strip leading and trailing empty lines/margins from the rendered
 	// output so the viewport's TotalLineCount strictly matches the visible text bounds.
 	lines := strings.Split(rendered, "\n")
-	
+
 	// Strip leading
 	for len(lines) > 0 && len(strings.TrimSpace(StripANSI(lines[0]))) == 0 {
 		lines = lines[1:]
