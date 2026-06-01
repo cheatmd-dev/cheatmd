@@ -114,12 +114,7 @@ func buildComposeMarkdown(name, desc, command string) string {
 	sb.WriteString(name)
 	sb.WriteString("\n\n")
 
-	if desc != "" {
-		sb.WriteString(desc)
-		sb.WriteString("\n\n")
-	}
-
-	sb.WriteString("```sh title:\"\"\n")
+	sb.WriteString(fmt.Sprintf("```sh title:\"%s\"\n", desc))
 	sb.WriteString(command)
 	sb.WriteString("\n```\n")
 
