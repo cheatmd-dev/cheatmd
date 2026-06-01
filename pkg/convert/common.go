@@ -1,3 +1,5 @@
+// Package convert provides utilities for migrating legacy cheat sheet formats
+// (such as .navi) into the standard Markdown-based AST format used by cheatmd.
 package convert
 
 import (

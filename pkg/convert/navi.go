@@ -53,6 +53,8 @@ type NaviSource struct {
 	Content string
 }
 
+// NaviResult represents the intermediate parsing state of a single .navi file
+// before it is serialized into the final cheatmd Markdown AST.
 type NaviResult struct {
 	Path    string
 	Content string

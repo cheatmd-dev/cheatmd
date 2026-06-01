@@ -1,3 +1,6 @@
+// Package chainstate manages persistent state for multi-step chained cheats.
+// It tracks the user's progress through complex workflows by recording which
+// step of a chain they are currently executing and persisting this state to disk.
 package chainstate
 
 import (
@@ -8,15 +11,18 @@ import (
 	"strings"
 )
 
+// State represents the overall persisted chain state across all projects.
 type State struct {
 	Projects map[string]*ProjectState `json:"projects"`
 }
 
+// ProjectState holds the chain tracking information for a specific project root.
 type ProjectState struct {
 	ActiveChain string         `json:"active_chain,omitempty"`
 	Chains      map[string]int `json:"chains,omitempty"`
 }
 
+// DefaultPath returns the default filesystem path for the chainstate JSON file.
 func DefaultPath() (string, error) {
 	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
 		return filepath.Join(xdg, "cheatmd", "chains.json"), nil
@@ -28,6 +34,8 @@ func DefaultPath() (string, error) {
 	return filepath.Join(home, ".local", "share", "cheatmd", "chains.json"), nil
 }
 
+// Load reads the chainstate from the specified path, migrating older flat formats
+// if necessary, and returns the structured State object.
 func Load(path string) (*State, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -62,6 +70,7 @@ func getOrCreateProject(state *State, root string) *ProjectState {
 	return p
 }
 
+// Save marshals and writes the given State to the specified path.
 func Save(path string, state *State) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -74,6 +83,8 @@ func Save(path string, state *State) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// ActiveName returns the currently active chain name for the given project root.
+// Returns an empty string if no chain is active.
 func ActiveName(root string, state *State) string {
 	if state == nil || state.Projects == nil {
 		return ""
@@ -84,6 +95,7 @@ func ActiveName(root string, state *State) string {
 	return ""
 }
 
+// SetActive sets the currently active chain name for the given project root.
 func SetActive(root, name string, state *State) {
 	if state == nil {
 		return
@@ -92,6 +104,7 @@ func SetActive(root, name string, state *State) {
 	p.ActiveChain = name
 }
 
+// Clear removes all stored steps and active state for the specified chain within a project.
 func Clear(root, name string, state *State) {
 	if state == nil || state.Projects == nil {
 		return
@@ -112,6 +125,7 @@ func Clear(root, name string, state *State) {
 	}
 }
 
+// GetStep returns the current step integer for the specified chain within a project.
 func GetStep(root, name string, state *State) int {
 	if state == nil || state.Projects == nil {
 		return 0
@@ -122,6 +136,7 @@ func GetStep(root, name string, state *State) int {
 	return 0
 }
 
+// SetStep records the current step integer for the specified chain within a project.
 func SetStep(root, name string, step int, state *State) {
 	if state == nil {
 		return

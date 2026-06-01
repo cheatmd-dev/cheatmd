@@ -1,3 +1,6 @@
+// Package config handles loading, parsing, and managing the global cheatmd
+// configuration and user preferences from disk. It defines the paths, UI
+// customizations, and default behaviors for the application.
 package config
 
 import (
@@ -92,6 +95,7 @@ type ColumnConfig struct {
 // via the registry_url config key for private/self-hosted registries.
 const DefaultRegistryURL = "https://raw.githubusercontent.com/cheatmd-dev/registry/main/registry.yaml"
 
+// DefaultConfig provides the base configuration defaults for cheatmd.
 var DefaultConfig = Config{
 	Path:                ".",
 	RegistryURL:         DefaultRegistryURL,
@@ -305,11 +309,15 @@ func expandTilde(path string) string {
 	return path
 }
 
+// VarSyntaxAllowsDollar reports whether the configured VarSyntax permits
+// substituting variables with the $name syntax.
 func VarSyntaxAllowsDollar() bool {
 	syntax := Get().VarSyntax
 	return syntax == "dollar" || syntax == "both" || syntax == ""
 }
 
+// VarSyntaxAllowsAngle reports whether the configured VarSyntax permits
+// substituting variables with the <name> syntax.
 func VarSyntaxAllowsAngle() bool {
 	syntax := Get().VarSyntax
 	return syntax == "angle" || syntax == "both"

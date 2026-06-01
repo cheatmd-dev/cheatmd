@@ -1,3 +1,6 @@
+// Package executor is the core execution engine responsible for resolving variable
+// dependencies, substituting values securely into shell commands, and dispatching
+// those commands to the local shell environment or clipboard.
 package executor
 
 import (

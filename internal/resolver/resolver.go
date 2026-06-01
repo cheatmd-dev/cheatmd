@@ -1,3 +1,6 @@
+// Package resolver acts as a bridge connecting the parsed AST to the UI and Executor engines.
+// It provides functionality for fuzzy matching queries, determining variable dependencies,
+// and assembling the topological execution graph.
 package resolver
 
 import (
