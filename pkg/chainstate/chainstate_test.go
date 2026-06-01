@@ -44,7 +44,6 @@ func TestLoadSaveComplexState(t *testing.T) {
 	}
 }
 
-
 func TestClear(t *testing.T) {
 	state := &State{Projects: make(map[string]*ProjectState)}
 	SetStep("/root", "chain1", 1, state)

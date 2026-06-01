@@ -49,7 +49,6 @@ func Load(path string) (*State, error) {
 	return &State{Projects: make(map[string]*ProjectState)}, nil
 }
 
-
 func getOrCreateProject(state *State, root string) *ProjectState {
 	cleanRoot := filepath.Clean(root)
 	p, ok := state.Projects[cleanRoot]
