@@ -57,6 +57,21 @@ func (m *mainModel) enterPreview(c *parser.Cheat) bool {
 		// Fall back to the raw source on render failure.
 		rendered = string(data)
 	}
+
+	// Aggressively strip leading and trailing empty lines/margins from the rendered
+	// output so the viewport's TotalLineCount strictly matches the visible text bounds.
+	lines := strings.Split(rendered, "\n")
+
+	// Strip leading
+	for len(lines) > 0 && len(strings.TrimSpace(StripANSI(lines[0]))) == 0 {
+		lines = lines[1:]
+	}
+	// Strip trailing
+	for len(lines) > 0 && len(strings.TrimSpace(StripANSI(lines[len(lines)-1]))) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	rendered = strings.Join(lines, "\n")
+
 	vp.SetContent(rendered)
 
 	// Scroll so the cheat's header is near the top of the viewport.
