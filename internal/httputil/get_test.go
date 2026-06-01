@@ -48,7 +48,9 @@ func TestGet_Success(t *testing.T) {
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		if _, err := w.Write([]byte("success")); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 

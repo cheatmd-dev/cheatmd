@@ -464,7 +464,9 @@ func adaptNaviVar(shell, args string) (string, string) {
 		}
 		switch tok {
 		case "--header-lines", "--headers":
-			fmt.Sscanf(next, "%d", &headers)
+			if _, err := fmt.Sscanf(next, "%d", &headers); err != nil {
+				headers = 0
+			}
 			i++
 		case "--column", "--select-column":
 			columnN = next

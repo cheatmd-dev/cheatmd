@@ -298,17 +298,6 @@ func withCheatsPath(template, cheatsDir string) string {
 // Helpers
 // ============================================================================
 
-// expandTilde expands ~ to the user's home directory
-func expandTilde(path string) string {
-	if len(path) == 0 || path[0] != '~' {
-		return path
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, path[1:])
-	}
-	return path
-}
-
 // VarSyntaxAllowsDollar reports whether the configured VarSyntax permits
 // substituting variables with the $name syntax.
 func VarSyntaxAllowsDollar() bool {

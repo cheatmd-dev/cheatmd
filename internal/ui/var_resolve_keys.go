@@ -319,9 +319,9 @@ func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
 
 	m.textInput.SetValue("")
 	m.clearPathCompletions()
-	
+
 	// Clear the UI state for the current variable so that during the next render
-	// (or the final quit render) we don't attempt to render the old picker 
+	// (or the final quit render) we don't attempt to render the old picker
 	// using the new out-of-bounds currentIdx.
 	m.varState.picker = nil
 	m.varState.options = nil

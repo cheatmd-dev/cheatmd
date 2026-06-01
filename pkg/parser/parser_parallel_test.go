@@ -9,7 +9,9 @@ import (
 
 func TestParseDirectoryParallelErrors(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "test_cheats_err")
-	os.MkdirAll(dir, 0755)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
 
 	// Create 100 files with parse errors
 	for i := 0; i < 100; i++ {

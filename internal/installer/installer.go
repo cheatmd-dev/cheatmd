@@ -45,7 +45,9 @@ func Install(ctx context.Context, pack registry.Pack, destDir string) error {
 
 	if err := os.MkdirAll(target, 0o755); err != nil {
 		if hasOld {
-			os.Rename(backup, target)
+			if restoreErr := os.Rename(backup, target); restoreErr != nil {
+				return fmt.Errorf("create install dir: %w (additionally, failed to restore backup: %v)", err, restoreErr)
+			}
 		}
 		return fmt.Errorf("create install dir: %w", err)
 	}
@@ -55,7 +57,9 @@ func Install(ctx context.Context, pack registry.Pack, destDir string) error {
 		if err != nil {
 			os.RemoveAll(target)
 			if hasOld {
-				os.Rename(backup, target)
+				if restoreErr := os.Rename(backup, target); restoreErr != nil {
+					return fmt.Errorf("%w (additionally, failed to restore backup: %v)", err, restoreErr)
+				}
 			}
 		}
 		return err
