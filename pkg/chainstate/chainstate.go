@@ -36,6 +36,7 @@ func Load(path string) (*State, error) {
 		}
 		return nil, err
 	}
+
 	var state State
 	if err := json.Unmarshal(data, &state); err == nil {
 		if state.Projects == nil {
@@ -44,37 +45,8 @@ func Load(path string) (*State, error) {
 		return &state, nil
 	}
 
-	// Fallback to old format migration
-	var old map[string]int
-	if err := json.Unmarshal(data, &old); err == nil {
-		return migrateOldState(old), nil
-	}
-
-	// Unmarshal failed completely, return empty state
+	// Unmarshal failed, return empty state
 	return &State{Projects: make(map[string]*ProjectState)}, nil
-}
-
-func migrateOldState(old map[string]int) *State {
-	s := &State{Projects: make(map[string]*ProjectState)}
-	for key, value := range old {
-		parts := strings.SplitN(key, "|", 3)
-		if len(parts) == 2 {
-			// root|name
-			root := parts[0]
-			name := parts[1]
-			p := getOrCreateProject(s, root)
-			p.Chains[name] = value
-		} else if len(parts) == 3 && parts[1] == "@active" {
-			// root|@active|name
-			root := parts[0]
-			name := parts[2]
-			if value > 0 {
-				p := getOrCreateProject(s, root)
-				p.ActiveChain = name
-			}
-		}
-	}
-	return s
 }
 
 func getOrCreateProject(state *State, root string) *ProjectState {
