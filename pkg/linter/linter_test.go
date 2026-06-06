@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 )
 
 func TestLint(t *testing.T) {
@@ -208,7 +210,7 @@ export shell_helper
 			content: `## Loop
 
 ` + "```sh" + `
-for i in {1..10}; do echo <a>.$i; done
+for i in {1..10}; do echo $a.$i; done
 ` + "```" + `
 <!-- cheat
 -->
@@ -217,7 +219,7 @@ for i in {1..10}; do echo <a>.$i; done
 			avoidErrors: []string{"variable \"i\" referenced"},
 		},
 		{
-			name: "TestLintShellSpecialsDoNotApplyToAngleRefs",
+			name: "TestLintShellSpecialsAndDefaultDollarSyntax",
 			content: `## Home
 
 ` + "```sh" + `
@@ -226,7 +228,7 @@ echo "$HOME" "<HOME>" "$1" "${10}"
 <!-- cheat
 -->
 `,
-			wantErrors: []string{"variable \"HOME\" referenced", "variable \"HOME\" referenced"},
+			avoidErrors: []string{"variable \"HOME\" referenced", "variable \"10\" referenced"},
 		},
 		{
 			name: "TestLintPowerShellWarnsForUndeclaredInputButNotAssignment",
@@ -344,6 +346,169 @@ fi extra
 		if !hasFinding(findings, msg) {
 			t.Fatalf("missing finding containing %q\nfindings:\n%s", msg, formatFindings(findings))
 		}
+	}
+}
+
+func TestLintAllowsDuplicateCheatHeadersAcrossFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "one.md"), `## whoami
+
+`+"```sh"+`
+whoami
+`+"```"+`
+<!-- cheat
+-->
+`)
+	writeFile(t, filepath.Join(dir, "two.md"), `## whoami
+
+`+"```sh"+`
+id
+`+"```"+`
+<!-- cheat
+-->
+`)
+
+	findings, err := Lint(dir)
+	if err != nil {
+		t.Fatalf("Lint returned error: %v", err)
+	}
+	if hasFinding(findings, "duplicate cheat name \"whoami\"") {
+		t.Fatalf("duplicate cheat names in different files should not warn\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintWithConfigHonorsVarSyntax(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "syntax.md")
+	writeFile(t, path, `## Literal angle
+
+`+"```sh"+`
+printf '<host> $target\n'
+`+"```"+`
+<!-- cheat
+var target
+-->
+`)
+
+	findings, err := LintWithConfig(path, config.Config{VarSyntax: "dollar"})
+	if err != nil {
+		t.Fatalf("LintWithConfig returned error: %v", err)
+	}
+	if hasFinding(findings, "variable \"host\" referenced") {
+		t.Fatalf("dollar syntax should ignore literal angle refs\nfindings:\n%s", formatFindings(findings))
+	}
+	if hasFinding(findings, "variable \"target\" referenced") {
+		t.Fatalf("declared dollar ref should not warn\nfindings:\n%s", formatFindings(findings))
+	}
+
+	findings, err = LintWithConfig(path, config.Config{VarSyntax: "angle"})
+	if err != nil {
+		t.Fatalf("LintWithConfig returned error: %v", err)
+	}
+	if hasFinding(findings, "variable \"target\" referenced") {
+		t.Fatalf("angle syntax should ignore dollar refs\nfindings:\n%s", formatFindings(findings))
+	}
+	if !hasFinding(findings, "variable \"host\" referenced") {
+		t.Fatalf("angle syntax should scan angle refs\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintWithConfigAllowsUndeclaredVars(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "undeclared.md")
+	writeFile(t, path, `## Dynamic
+
+`+"```sh"+`
+echo $runtime_prompt
+`+"```"+`
+<!-- cheat
+-->
+`)
+
+	findings, err := LintWithConfig(path, config.Config{VarSyntax: "dollar", AllowUndeclaredVars: true})
+	if err != nil {
+		t.Fatalf("LintWithConfig returned error: %v", err)
+	}
+	if hasFinding(findings, "variable \"runtime_prompt\" referenced") {
+		t.Fatalf("allow_undeclared_vars should suppress dynamic prompt warnings\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintShellVarsAreCaseSensitiveAndBracesAreShellSyntax(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "case.md")
+	writeFile(t, path, `## Case
+
+`+"```sh"+`
+echo $HOST ${shell_only}
+`+"```"+`
+<!-- cheat
+var host
+-->
+`)
+
+	findings, err := LintWithConfig(path, config.Config{VarSyntax: "dollar"})
+	if err != nil {
+		t.Fatalf("LintWithConfig returned error: %v", err)
+	}
+	if !hasFinding(findings, "variable \"HOST\" referenced") {
+		t.Fatalf("$HOST should not be satisfied by var host\nfindings:\n%s", formatFindings(findings))
+	}
+	if hasFinding(findings, "variable \"shell_only\" referenced") {
+		t.Fatalf("${name} should be treated as shell syntax, not CheatMD syntax\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintIgnoresShellCommentRefs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "comments.md")
+	writeFile(t, path, `## Comments
+
+`+"```sh"+`
+# Example only: curl http://$host/
+echo ok
+`+"```"+`
+<!-- cheat
+-->
+`)
+
+	findings, err := Lint(path)
+	if err != nil {
+		t.Fatalf("Lint returned error: %v", err)
+	}
+	if hasFinding(findings, "variable \"host\" referenced") {
+		t.Fatalf("shell comments should not produce undeclared variable warnings\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintParsesFenceCloseWithTrailingWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "fence.md")
+	writeFile(t, path, "## Fence\n\n```sh\necho $missing\n```   \n<!-- cheat\n-->\n")
+
+	findings, err := Lint(path)
+	if err != nil {
+		t.Fatalf("Lint returned error: %v", err)
+	}
+	if !hasFinding(findings, "variable \"missing\" referenced") {
+		t.Fatalf("cheat block after trailing-space fence close should be associated with command\nfindings:\n%s", formatFindings(findings))
+	}
+	if hasFinding(findings, "has no preceding code block") {
+		t.Fatalf("cheat block should not be swallowed by code fence\nfindings:\n%s", formatFindings(findings))
+	}
+}
+
+func TestLintReportsUnterminatedCodeFence(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "unterminated.md")
+	writeFile(t, path, "## Broken\n\n```sh\necho never closed\n")
+
+	findings, err := Lint(path)
+	if err != nil {
+		t.Fatalf("Lint returned error: %v", err)
+	}
+	if !hasFinding(findings, "unterminated code fence") {
+		t.Fatalf("missing unterminated code fence diagnostic\nfindings:\n%s", formatFindings(findings))
 	}
 }
 

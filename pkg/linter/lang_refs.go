@@ -28,7 +28,7 @@ type Ref struct {
 }
 
 func isMissing(ref Ref, declared map[string]bool, cmd string) bool {
-	if declared[ref.Name] || declared[strings.ToLower(ref.Name)] {
+	if declared[ref.Name] {
 		return false
 	}
 	if ref.Kind == RefAngleTemplate {
@@ -54,7 +54,7 @@ func isMissing(ref Ref, declared map[string]bool, cmd string) bool {
 	return true
 }
 
-func referencedVars(c *parser.Cheat) []Ref {
+func referencedVars(c *parser.Cheat, varSyntax string) []Ref {
 	var refs []Ref
 	seen := make(map[string]bool)
 
@@ -69,15 +69,23 @@ func referencedVars(c *parser.Cheat) []Ref {
 		if c.CommandStart == 0 {
 			lineNo = 0
 		}
-		scanLineRefs(line, lineNo, kind, lang, heredocBodyLines[i], seen, &refs)
+		scanLineRefs(line, lineNo, kind, lang, varSyntax, heredocBodyLines[i], seen, &refs)
 	}
 	return refs
 }
 
-func scanLineRefs(line string, lineNo int, kind RefKind, lang string, suppressAngle bool, seen map[string]bool, refs *[]Ref) {
+func scanLineRefs(line string, lineNo int, kind RefKind, lang string, varSyntax string, suppressAngle bool, seen map[string]bool, refs *[]Ref) {
+	if lang == "shell" && strings.HasPrefix(strings.TrimSpace(line), "#") {
+		return
+	}
+	allowDollar := varSyntax == "dollar" || varSyntax == "both"
+	allowAngle := varSyntax == "angle" || varSyntax == "both"
 	for col := 0; col < len(line); col++ {
 		switch line[col] {
 		case '$':
+			if !allowDollar {
+				continue
+			}
 			if lang == "shell" && inSingleQuotedShellText(line, col) {
 				continue
 			}
@@ -92,7 +100,7 @@ func scanLineRefs(line string, lineNo int, kind RefKind, lang string, suppressAn
 			}
 			col = end - 1
 		case '<':
-			if suppressAngle {
+			if !allowAngle || suppressAngle {
 				continue
 			}
 			ref, end, ok := scanAngleRef(line, col, lineNo)
@@ -117,18 +125,7 @@ func scanDollarRef(line string, pos int, kind RefKind, lineNo int) (Ref, int, bo
 		return Ref{}, pos + 1, false
 	}
 	if line[pos+1] == '{' {
-		j := pos + 2
-		if j >= len(line) || !isShellBracedVarChar(line[j], true) {
-			return Ref{}, pos + 1, false
-		}
-		j++
-		for j < len(line) && isShellBracedVarChar(line[j], false) {
-			j++
-		}
-		if j >= len(line) || line[j] != '}' {
-			return Ref{}, pos + 1, false
-		}
-		return Ref{Name: line[pos+2 : j], Kind: kind, Line: lineNo, Column: pos + 1}, j + 1, true
+		return Ref{}, pos + 1, false
 	}
 	next := line[pos+1]
 	if kind == RefShellParam && isShellSingleSpecial(next) {
@@ -221,7 +218,6 @@ func processDeclMatch(m []string, declared map[string]bool) {
 	if strings.HasPrefix(fullMatchLower, "param") || strings.HasPrefix(fullMatchLower, "function") {
 		for _, pm := range psVarInParamRe.FindAllStringSubmatch(m[1], -1) {
 			declared[pm[1]] = true
-			declared[strings.ToLower(pm[1])] = true
 		}
 		return
 	}
@@ -234,14 +230,12 @@ func processDeclMatch(m []string, declared map[string]bool) {
 			}
 			if isIdentifier(field) {
 				declared[field] = true
-				declared[strings.ToLower(field)] = true
 			}
 		}
 		return
 	}
 
 	declared[m[1]] = true
-	declared[strings.ToLower(m[1])] = true
 }
 
 func isLikelyPowerShellCommand(cmd string) bool {
@@ -364,13 +358,6 @@ func isPowerShellAutomatic(name string) bool {
 
 func isPerlAutomatic(name string) bool {
 	return name == "_"
-}
-
-func isShellBracedVarChar(c byte, first bool) bool {
-	if c >= '0' && c <= '9' {
-		return true
-	}
-	return parser.IsVarChar(c, first)
 }
 
 func isShellSingleSpecial(c byte) bool {

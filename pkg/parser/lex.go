@@ -112,12 +112,21 @@ func parseHeader(line []byte) (string, bool) {
 	return strings.TrimSpace(string(line[i:])), true
 }
 
-// parseCodeBlockStart parses ```lang title:"desc" without regex.
-func parseCodeBlockStart(line []byte) (lang, desc string, ok bool) {
-	if len(line) < 3 || line[0] != '`' || line[1] != '`' || line[2] != '`' {
-		return "", "", false
+// parseCodeBlockStart parses Markdown fenced code starts such as
+// ```lang title:"desc" and ~~~lang. Up to three leading spaces are allowed.
+func parseCodeBlockStart(line []byte) (fenceChar byte, fenceLen int, lang, desc string, ok bool) {
+	start := markdownLineStart(line)
+	if start >= len(line) || (line[start] != '`' && line[start] != '~') {
+		return 0, 0, "", "", false
 	}
-	rest := line[3:]
+	fenceChar = line[start]
+	for start+fenceLen < len(line) && line[start+fenceLen] == fenceChar {
+		fenceLen++
+	}
+	if fenceLen < 3 {
+		return 0, 0, "", "", false
+	}
+	rest := line[start+fenceLen:]
 
 	// Extract language
 	langEnd := 0
@@ -129,17 +138,40 @@ func parseCodeBlockStart(line []byte) (lang, desc string, ok bool) {
 	// Check for title
 	titleIdx := bytes.Index(rest[langEnd:], []byte("title:\""))
 	if titleIdx == -1 {
-		return lang, "", true
+		return fenceChar, fenceLen, lang, "", true
 	}
 
 	// Extract title
-	start := langEnd + titleIdx + 7 // length of `title:"`
-	end := bytes.IndexByte(rest[start:], '"')
+	titleStart := langEnd + titleIdx + 7 // length of `title:"`
+	end := bytes.IndexByte(rest[titleStart:], '"')
 	if end == -1 {
-		return lang, "", true
+		return fenceChar, fenceLen, lang, "", true
 	}
 
-	return lang, string(rest[start : start+end]), true
+	return fenceChar, fenceLen, lang, string(rest[titleStart : titleStart+end]), true
+}
+
+func markdownLineStart(line []byte) int {
+	i := 0
+	for i < len(line) && i < 3 && line[i] == ' ' {
+		i++
+	}
+	return i
+}
+
+func isCodeFenceClose(line []byte, fenceChar byte, fenceLen int) bool {
+	start := markdownLineStart(line)
+	if start >= len(line) || line[start] != fenceChar {
+		return false
+	}
+	count := 0
+	for start+count < len(line) && line[start+count] == fenceChar {
+		count++
+	}
+	if count < fenceLen {
+		return false
+	}
+	return len(bytes.TrimSpace(line[start+count:])) == 0
 }
 
 // parseCheatSingleLine parses <!-- cheat ... --> and returns the content.

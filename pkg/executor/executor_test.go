@@ -74,6 +74,12 @@ func TestSubstituteVars_Dollar(t *testing.T) {
 			scope:    map[string]string{"host": "10.0.0.1"},
 			expected: "echo <host>",
 		},
+		{
+			name:     "braced shell vars ignored in dollar mode",
+			input:    "echo ${host} $host",
+			scope:    map[string]string{"host": "10.0.0.1"},
+			expected: "echo ${host} 10.0.0.1",
+		},
 	}
 
 	for _, tt := range tests {
