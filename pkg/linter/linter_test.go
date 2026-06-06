@@ -349,7 +349,7 @@ fi extra
 	}
 }
 
-func TestLintAllowsDuplicateCheatHeadersAcrossFiles(t *testing.T) {
+func TestLintReportsDuplicateCheatHeadersAcrossFiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "one.md"), `## whoami
 
@@ -372,8 +372,8 @@ id
 	if err != nil {
 		t.Fatalf("Lint returned error: %v", err)
 	}
-	if hasFinding(findings, "duplicate cheat name \"whoami\"") {
-		t.Fatalf("duplicate cheat names in different files should not warn\nfindings:\n%s", formatFindings(findings))
+	if !hasFinding(findings, "duplicate cheat name \"whoami\"") {
+		t.Fatalf("duplicate cheat names in different files should warn\nfindings:\n%s", formatFindings(findings))
 	}
 }
 
@@ -434,12 +434,14 @@ echo $runtime_prompt
 	}
 }
 
-func TestLintShellVarsAreCaseSensitiveAndBracesAreShellSyntax(t *testing.T) {
+func TestLintDollarVarsIgnoreBracesAndPreserveSyntaxDeclarations(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "case.md")
 	writeFile(t, path, `## Case
 
 `+"```sh"+`
+HOST=example.com
+echo $host
 echo $HOST ${shell_only}
 `+"```"+`
 <!-- cheat
@@ -454,8 +456,11 @@ var host
 	if !hasFinding(findings, "variable \"HOST\" referenced") {
 		t.Fatalf("$HOST should not be satisfied by var host\nfindings:\n%s", formatFindings(findings))
 	}
+	if hasFinding(findings, "variable \"host\" referenced") {
+		t.Fatalf("syntax declarations should be preserved in lowercase for search refs\nfindings:\n%s", formatFindings(findings))
+	}
 	if hasFinding(findings, "variable \"shell_only\" referenced") {
-		t.Fatalf("${name} should be treated as shell syntax, not CheatMD syntax\nfindings:\n%s", formatFindings(findings))
+		t.Fatalf("${name} should not be a CheatMD variable; only $name and <name> are variables\nfindings:\n%s", formatFindings(findings))
 	}
 }
 

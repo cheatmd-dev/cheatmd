@@ -235,7 +235,7 @@ func processDeclMatch(m []string, declared map[string]bool) {
 		return
 	}
 
-	declared[m[1]] = true
+	declared[strings.ToLower(m[1])] = true
 }
 
 func isLikelyPowerShellCommand(cmd string) bool {

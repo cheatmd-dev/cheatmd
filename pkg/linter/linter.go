@@ -10,7 +10,7 @@
 //     `$var`/`<var>` references in commands should be declared (in a cheat
 //     block or imported module), and undeclared references are warnings.
 //  3. Structural: empty `##` headers, missing code blocks, duplicate cheat
-//     headers within one file.
+//     headers across the linted input.
 package linter
 
 import (
@@ -32,7 +32,7 @@ const (
 	// import target, duplicate export, etc.
 	SeverityError Severity = iota
 	// SeverityWarning indicates a recommendation or potential issue:
-	// undeclared variables, duplicate headers within one file.
+	// undeclared variables, duplicate headers across the linted input.
 	SeverityWarning
 )
 
@@ -189,6 +189,7 @@ func lintDuplicateExports(index *parser.CheatIndex) []Finding {
 func lintDuplicateHeaders(index *parser.CheatIndex) []Finding {
 	var findings []Finding
 	type cheatLoc struct {
+		file string
 		line int
 	}
 	headerLocs := make(map[string]cheatLoc)
@@ -197,21 +198,23 @@ func lintDuplicateHeaders(index *parser.CheatIndex) []Finding {
 		if c.Header == "" {
 			continue
 		}
-		key := c.File + "\x00" + c.Header
 
-		firstLoc, exists := headerLocs[key]
+		firstLoc, exists := headerLocs[c.Header]
 		if !exists {
-			headerLocs[key] = cheatLoc{line: c.HeaderLine}
+			headerLocs[c.Header] = cheatLoc{file: c.File, line: c.HeaderLine}
 			continue
 		}
 
-		if warnedHeaders[key] {
+		if warnedHeaders[c.Header] {
 			continue
 		}
 
 		msg := fmt.Sprintf("duplicate cheat name %q (also `# %s` at line %d)", c.Header, c.Header, firstLoc.line)
+		if firstLoc.file != c.File {
+			msg = fmt.Sprintf("duplicate cheat name %q (also `# %s` at %s:%d)", c.Header, c.Header, firstLoc.file, firstLoc.line)
+		}
 		findings = append(findings, warningf(c.File, c.HeaderLine, 1, "%s", msg))
-		warnedHeaders[key] = true
+		warnedHeaders[c.Header] = true
 	}
 	return findings
 }
