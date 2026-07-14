@@ -11,7 +11,7 @@ Executable Markdown cheatsheets. Write readable docs, run interactive commands.
 ## Install
 
 ```bash
-go install github.com/cheatmd-dev/cheatmd/cmd/cheatmd@v1.0.0-rc.3
+go install github.com/cheatmd-dev/cheatmd/cmd/cheatmd@latest
 ```
 
 Requires Go 1.26+.
