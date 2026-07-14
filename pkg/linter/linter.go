@@ -9,8 +9,8 @@
 //     somewhere in the index. Duplicate `export` names are flagged.
 //     `$var`/`<var>` references in commands should be declared (in a cheat
 //     block or imported module), and undeclared references are warnings.
-//  3. Structural: empty `##` headers, missing code blocks, duplicate `##`
-//     headers within one file.
+//  3. Structural: empty `##` headers, missing code blocks, duplicate cheat
+//     headers across the linted input.
 package linter
 
 import (
@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 )
 
@@ -31,7 +32,7 @@ const (
 	// import target, duplicate export, etc.
 	SeverityError Severity = iota
 	// SeverityWarning indicates a recommendation or potential issue:
-	// undeclared variables, duplicate headers within a file.
+	// undeclared variables, duplicate headers across the linted input.
 	SeverityWarning
 )
 
@@ -74,10 +75,18 @@ func (f Finding) Format() string {
 // Lint walks path (file or directory), parses every markdown file, and
 // returns all findings sorted by file/line.
 func Lint(path string) ([]Finding, error) {
+	return LintWithConfig(path, config.DefaultConfig)
+}
+
+// LintWithConfig walks path (file or directory), parses every markdown file,
+// and returns findings using cfg for runtime-sensitive checks such as variable
+// syntax and declaration-free prompting.
+func LintWithConfig(path string, cfg config.Config) ([]Finding, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
+	cfg.VarSyntax = normalizeVarSyntax(cfg.VarSyntax)
 
 	p := parser.NewParser()
 	var index *parser.CheatIndex
@@ -107,7 +116,7 @@ func Lint(path string) ([]Finding, error) {
 		})
 	}
 
-	indexFindings := lintIndex(index, info.IsDir())
+	indexFindings := lintIndex(index, info.IsDir(), cfg)
 	findings = append(findings, indexFindings...)
 
 	sort.SliceStable(findings, func(i, j int) bool {
@@ -122,20 +131,29 @@ func Lint(path string) ([]Finding, error) {
 	return findings, nil
 }
 
+func normalizeVarSyntax(s string) string {
+	switch s {
+	case "angle", "both":
+		return s
+	default:
+		return "dollar"
+	}
+}
+
 // ============================================================================
 // Whole-index checks
 // ============================================================================
 
 // lintIndex runs the parser and checks cross-cheat references: missing
 // imports, duplicate exports, and undeclared variable references in commands.
-func lintIndex(index *parser.CheatIndex, isDir bool) []Finding {
+func lintIndex(index *parser.CheatIndex, isDir bool, cfg config.Config) []Finding {
 	var findings []Finding
 
 	findings = append(findings, lintDuplicateExports(index)...)
 	findings = append(findings, lintDuplicateHeaders(index)...)
 	findings = append(findings, lintChainSteps(index)...)
 	findings = append(findings, lintImports(index)...)
-	findings = append(findings, lintUndeclaredVars(index)...)
+	findings = append(findings, lintUndeclaredVars(index, cfg)...)
 
 	return findings
 }
@@ -275,22 +293,25 @@ func lintCheatImports(c *parser.Cheat, index *parser.CheatIndex) []Finding {
 	return findings
 }
 
-func lintUndeclaredVars(index *parser.CheatIndex) []Finding {
+func lintUndeclaredVars(index *parser.CheatIndex, cfg config.Config) []Finding {
+	if cfg.AllowUndeclaredVars {
+		return nil
+	}
 	var findings []Finding
 	for _, c := range index.Cheats {
 		if c.Export != "" || !c.HasCheatBlock || len(c.Command) == 0 {
 			continue
 		}
-		findings = append(findings, lintCheatUndeclaredVars(c, index)...)
+		findings = append(findings, lintCheatUndeclaredVars(c, index, cfg)...)
 	}
 	return findings
 }
 
-func lintCheatUndeclaredVars(c *parser.Cheat, index *parser.CheatIndex) []Finding {
+func lintCheatUndeclaredVars(c *parser.Cheat, index *parser.CheatIndex, cfg config.Config) []Finding {
 	var findings []Finding
 	declared := declaredVarNames(c, index)
 	addSyntaxDeclarations(c.Command, declared)
-	for _, ref := range referencedVars(c) {
+	for _, ref := range referencedVars(c, cfg.VarSyntax) {
 		if isMissing(ref, declared, c.Command) {
 			findings = append(findings, warningf(c.File, ref.Line, ref.Column, "undeclared variable %q referenced in command", ref.Name))
 		}

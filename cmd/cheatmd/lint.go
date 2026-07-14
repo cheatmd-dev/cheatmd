@@ -5,12 +5,13 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/linter"
 	"github.com/spf13/cobra"
 )
 
 func runLint(cmd *cobra.Command, path string) error {
-	findings, err := linter.Lint(path)
+	findings, err := linter.LintWithConfig(path, *config.Get())
 	if err != nil {
 		return fmt.Errorf("lint error: %w", err)
 	}

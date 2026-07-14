@@ -115,6 +115,12 @@ func TestFindAllVars(t *testing.T) {
 			cmd:      "echo $foo and $foo",
 			expected: []string{"foo"},
 		},
+		{
+			name:     "braced shell vars ignored",
+			syntax:   "dollar",
+			cmd:      "echo ${foo} $bar",
+			expected: []string{"bar"},
+		},
 	}
 
 	for _, tt := range tests {

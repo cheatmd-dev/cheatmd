@@ -199,6 +199,8 @@ type parseState struct {
 	codeBlockLang     string
 	codeBlockStart    int
 	codeBlockDesc     string
+	codeFenceChar     byte
+	codeFenceLen      int
 	codeBlockBuf      []byte // direct byte buffer, no Builder overhead
 	inCheatBlock      bool
 	cheatBlockStart   int
@@ -247,6 +249,8 @@ func getParseState() *parseState {
 	s.codeBlockLang = ""
 	s.codeBlockStart = 0
 	s.codeBlockDesc = ""
+	s.codeFenceChar = 0
+	s.codeFenceLen = 0
 	s.codeBlockBuf = s.codeBlockBuf[:0]
 	s.inCheatBlock = false
 	s.cheatBlockStart = 0
@@ -308,6 +312,16 @@ func (p *Parser) parseLines(path string, data []byte) {
 		})
 	}
 
+	if state.inCodeBlock {
+		p.index.Errors = append(p.index.Errors, ParseError{
+			File:    path,
+			Line:    state.codeBlockStart - 1,
+			Message: "unterminated code fence (missing closing fence)",
+		})
+		state.inCodeBlock = false
+		state.codeBlockBuf = state.codeBlockBuf[:0]
+	}
+
 	// Process remaining pending blocks
 	p.processPendingBlocks(path, state)
 }
@@ -331,13 +345,17 @@ func (p *Parser) parseLine(path string, line []byte, s *parseState) {
 		return
 	}
 
-	first := line[0]
+	lineStart := markdownLineStart(line)
+	if lineStart >= len(line) {
+		return
+	}
+	first := line[lineStart]
 
 	if first == '#' && p.tryParseHeader(path, line, s) {
 		return
 	}
 
-	if first == '`' && p.tryParseCodeBlockStart(line, s) {
+	if (first == '`' || first == '~') && p.tryParseCodeBlockStart(line, s) {
 		return
 	}
 
@@ -349,7 +367,7 @@ func (p *Parser) parseLine(path string, line []byte, s *parseState) {
 }
 
 func (p *Parser) parseLineInCodeBlock(line []byte, s *parseState) {
-	if len(line) == 3 && line[0] == '`' && line[1] == '`' && line[2] == '`' {
+	if isCodeFenceClose(line, s.codeFenceChar, s.codeFenceLen) {
 		s.inCodeBlock = false
 		content := trimSpaceBytes(s.codeBlockBuf)
 		if len(content) > 0 {
@@ -396,15 +414,15 @@ func (p *Parser) tryParseHeader(path string, line []byte, s *parseState) bool {
 }
 
 func (p *Parser) tryParseCodeBlockStart(line []byte, s *parseState) bool {
-	if len(line) >= 3 && line[1] == '`' && line[2] == '`' {
-		if lang, desc, ok := parseCodeBlockStart(line); ok {
-			s.inCodeBlock = true
-			s.codeBlockLang = lang
-			s.codeBlockStart = s.lineNo + 1
-			s.codeBlockDesc = desc
-			s.codeBlockBuf = s.codeBlockBuf[:0]
-			return true
-		}
+	if fenceChar, fenceLen, lang, desc, ok := parseCodeBlockStart(line); ok {
+		s.inCodeBlock = true
+		s.codeBlockLang = lang
+		s.codeBlockStart = s.lineNo + 1
+		s.codeBlockDesc = desc
+		s.codeFenceChar = fenceChar
+		s.codeFenceLen = fenceLen
+		s.codeBlockBuf = s.codeBlockBuf[:0]
+		return true
 	}
 	return false
 }
