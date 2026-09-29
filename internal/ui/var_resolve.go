@@ -153,7 +153,7 @@ func allVariantsConditional(variants []parser.VarDef) bool {
 }
 
 func (m *mainModel) prepareLiteralVar(vs *varState, scope map[string]string) tea.Cmd {
-	result := executor.SubstituteVars(vs.def.Literal, scope, config.Get().VarSyntax)
+	result := executor.SubstituteVars(vs.def.Literal, scope, "dollar")
 	if vs.skipAutoCont {
 		m.varState.isPromptOnly = true
 		m.varState.options = nil
@@ -184,7 +184,7 @@ func (m *mainModel) preparePromptVar(vs *varState) tea.Cmd {
 }
 
 func (m *mainModel) prepareShellVar(vs *varState, scope map[string]string) tea.Cmd {
-	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, config.Get().VarSyntax)
+	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, "dollar")
 	return func() tea.Msg {
 		output, err := m.executor.RunShell(shellCmd)
 		if err != nil {
