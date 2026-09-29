@@ -350,6 +350,32 @@ func TestParseVarDefLiteral(t *testing.T) {
 	}
 }
 
+func TestDirectoryPreservesFileDuplicates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "duplicates.md")
+	content := "# Modules\n<!-- cheat\nexport shared\nvar x := first\n-->\n<!-- cheat\nexport shared\nvar x := second\n-->\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	fileIndex, err := NewParser().ParseSingleFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []DuplicateExport{{Name: "shared", File1: path, File2: path}}
+	if !reflect.DeepEqual(fileIndex.Duplicates, want) {
+		t.Fatalf("file duplicates = %v, want %v", fileIndex.Duplicates, want)
+	}
+
+	directoryIndex, err := NewParser().ParseDirectory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(directoryIndex.Duplicates, fileIndex.Duplicates) {
+		t.Fatalf("directory duplicates = %v, want file duplicates %v", directoryIndex.Duplicates, fileIndex.Duplicates)
+	}
+}
+
 // TestDuplicateExportDetection verifies that duplicate exports are always
 // detected regardless of which goroutine processes each file. This is a
 // regression test for a race condition where two files with the same export
