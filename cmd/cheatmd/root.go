@@ -102,6 +102,10 @@ func resolveCheatPath(args []string) (string, error) {
 		path = config.Get().Path
 	}
 
+	path, err := config.ExpandHomePath(path)
+	if err != nil {
+		return "", fmt.Errorf("error resolving path: %w", err)
+	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("error resolving path: %w", err)

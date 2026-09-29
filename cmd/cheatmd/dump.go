@@ -4,12 +4,9 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/cheatmd-dev/cheatmd/pkg/config"
 	"github.com/cheatmd-dev/cheatmd/pkg/parser"
 	"github.com/spf13/cobra"
 )
@@ -104,25 +101,11 @@ func dumpVars(vars []parser.VarDef) []dumpVar {
 }
 
 func parseDumpIndex(args []string) (*parser.CheatIndex, error) {
-	path := "."
-	if len(args) > 0 {
-		path = args[0]
-	} else if config.Get().Path != "." {
-		path = config.Get().Path
-	}
-	absPath, err := filepath.Abs(path)
+	path, err := resolveCheatPath(args)
 	if err != nil {
-		return nil, fmt.Errorf("error resolving path: %w", err)
+		return nil, err
 	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("path error: %w", err)
-	}
-	p := parser.NewParser()
-	if info.IsDir() {
-		return p.ParseDirectory(absPath)
-	}
-	return p.ParseSingleFile(absPath)
+	return loadAndParseCheats(path)
 }
 
 func writeDumpCSV(cmd *cobra.Command, entries []dumpEntry) error {
