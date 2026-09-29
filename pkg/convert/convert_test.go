@@ -566,6 +566,24 @@ tar -czvf {{path/to/archive.tar.gz}} {{path/to/directory}}
 	}
 }
 
+func TestConvertTldrBareFencePreservesMultilineCommandAndFollowingExample(t *testing.T) {
+	input := "# echo\n\n" +
+		"- Print two greetings:\n\n```\necho hello\necho world\n```\n\n" +
+		"- Print farewell:\n\n`echo goodbye`\n"
+
+	converted, err := ConvertTldr(input, "echo.md")
+	if err != nil {
+		t.Fatalf("ConvertTldr failed: %v", err)
+	}
+
+	want := "# Converted TLDR for Echo\n\n" +
+		"## Print two greetings\n\n```sh\necho hello\necho world\n```\n\n" +
+		"## Print farewell\n\n```sh\necho goodbye\n```\n\n"
+	if converted != want {
+		t.Errorf("ConvertTldr output mismatch\ngot:\n%s\nwant:\n%s", converted, want)
+	}
+}
+
 // ============================================================================
 // TLDR placeholder-shape tests
 // ============================================================================
