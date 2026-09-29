@@ -368,9 +368,7 @@ func (s *RunnerSession) extractPromptValue(pv promptVar, promptRes *promptRespon
 
 func (s *RunnerSession) applyResolvedValue(vs *resolver.VarState, val string) {
 	selectOpts := resolver.ParseSelectorOpts(vs.Def.Args)
-	if selectOpts.MapCmd != "" {
-		val = resolver.ApplyMapTransform(val, selectOpts)
-	}
+	val = resolver.ApplyMapTransform(val, selectOpts)
 
 	vs.Value = val
 	vs.Resolved = true
