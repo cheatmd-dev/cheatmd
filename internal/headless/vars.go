@@ -102,6 +102,9 @@ func (s *RunnerSession) tryResolveVariable(vs *resolver.VarState, scope map[stri
 	}
 
 	s.updateVariableDefinition(vs, scope)
+	if vs.Resolved {
+		return true
+	}
 
 	if s.tryAutoContinue(vs) {
 		return true
