@@ -82,8 +82,9 @@ func (m *mainModel) acceptHistory() tea.Cmd {
 	if cheat == nil {
 		// Cheat no longer exists. Bail back to cheat select with the command
 		// as a search query so the user has something to act on.
-		m.textInput.SetValue(entry.Command)
 		m.exitHistory()
+		m.textInput.SetValue(entry.Command)
+		m.textInput.CursorEnd()
 		m.filterCheats()
 		return nil
 	}
