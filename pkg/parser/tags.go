@@ -76,7 +76,7 @@ func (p *Parser) getTagsForPath(path, header string) []string {
 		return append(tags, strings.ToLower(strings.TrimSpace(header[:idx])))
 	}
 
-	return pathTags
+	return pathTags[:len(pathTags):len(pathTags)]
 }
 
 // mergeTags appends newTags to existing, lowercasing and deduping in place.
