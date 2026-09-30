@@ -276,8 +276,18 @@ func checkMissingChainSteps(name string, steps map[int]*parser.Cheat) []Finding 
 
 func lintImports(index *parser.CheatIndex) []Finding {
 	var findings []Finding
+	seen := make(map[*parser.Cheat]bool)
 	for _, c := range index.Cheats {
+		seen[c] = true
 		findings = append(findings, lintCheatImports(c, index)...)
+	}
+	for _, module := range index.Modules {
+		for _, c := range module.Cheats {
+			if !seen[c] {
+				seen[c] = true
+				findings = append(findings, lintCheatImports(c, index)...)
+			}
+		}
 	}
 	return findings
 }
