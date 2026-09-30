@@ -138,14 +138,14 @@ func substituteTldrPlaceholder(cmd, raw, name string) string {
 // var block reads top-to-bottom in source order.
 func classifyTldrPlaceholders(raws []string) []tldrPlaceholder {
 	out := make([]tldrPlaceholder, 0, len(raws))
-	nameCount := make(map[string]int)
+	used := make(map[string]bool)
 	for _, raw := range raws {
 		ph := classifyTldrPlaceholder(raw)
-		uniq := nameCount[ph.Name]
-		nameCount[ph.Name] = uniq + 1
-		if uniq > 0 {
-			ph.Name = fmt.Sprintf("%s_%d", ph.Name, uniq+1)
+		base := ph.Name
+		for suffix := 2; used[ph.Name]; suffix++ {
+			ph.Name = fmt.Sprintf("%s_%d", base, suffix)
 		}
+		used[ph.Name] = true
 		out = append(out, ph)
 	}
 	return out
