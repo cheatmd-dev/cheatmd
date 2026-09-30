@@ -67,12 +67,12 @@ func (p *tldrParser) parseLine(lines []string, index int) int {
 // `\`\`\`sh ... \`\`\“ form (used by some real-world pages).
 func readCommand(lines []string, index int) (cmd string, consumed int) {
 	line := strings.TrimSpace(lines[index])
-	if strings.HasPrefix(line, "`") && strings.HasSuffix(line, "`") && len(line) >= 2 {
-		return line[1 : len(line)-1], index
-	}
 	if strings.HasPrefix(line, "```") {
 		body, end := consumeCodeBlock(lines, index+1)
 		return body, end
+	}
+	if strings.HasPrefix(line, "`") && strings.HasSuffix(line, "`") && len(line) >= 2 {
+		return line[1 : len(line)-1], index
 	}
 	return "", index
 }
