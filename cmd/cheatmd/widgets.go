@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cheatmd-dev/cheatmd/internal/shellgen"
 	"github.com/spf13/cobra"
@@ -22,17 +23,14 @@ Then press Ctrl+G to trigger the cheatmd selector.`,
 }
 
 func runWidget(cmd *cobra.Command, args []string) error {
-	shell := args[0]
-
-	switch shell {
-	case "bash":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.BashWidget())
-	case "zsh":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.ZshWidget())
-	case "fish":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.FishWidget())
-	default:
-		return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish)", shell)
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locate executable: %w", err)
 	}
+	script, err := shellgen.Widget(args[0], executable)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(cmd.OutOrStdout(), script)
 	return nil
 }
