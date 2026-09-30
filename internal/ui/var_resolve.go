@@ -18,8 +18,9 @@ import (
 
 // shellResultMsg is sent when a shell command completes.
 type shellResultMsg struct {
-	options []string
-	err     error
+	options    []string
+	err        error
+	generation uint64
 }
 
 // ============================================================================
@@ -83,6 +84,7 @@ func (m *mainModel) startVarResolutionInternal() {
 // prepareCurrentVar prepares the current variable for display. May return a
 // command to run a shell command to get options.
 func (m *mainModel) prepareCurrentVar() tea.Cmd {
+	m.shellGeneration++
 	if m.varState == nil || m.varState.currentIdx >= len(m.varState.vars) {
 		if m.varState != nil {
 			for _, vs := range m.varState.vars {
@@ -185,13 +187,14 @@ func (m *mainModel) preparePromptVar(vs *varState) tea.Cmd {
 
 func (m *mainModel) prepareShellVar(vs *varState, scope map[string]string) tea.Cmd {
 	shellCmd := executor.SubstituteVars(vs.def.Shell, scope, config.Get().VarSyntax)
+	generation := m.shellGeneration
 	return func() tea.Msg {
 		output, err := m.executor.RunShell(shellCmd)
 		if err != nil {
-			return shellResultMsg{nil, err}
+			return shellResultMsg{err: err, generation: generation}
 		}
 		lines := parser.SplitLines(output)
-		return shellResultMsg{lines, nil}
+		return shellResultMsg{options: lines, generation: generation}
 	}
 }
 
@@ -230,7 +233,7 @@ func (m *mainModel) updateVarResolve(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleShellResult processes the result of a shell command.
 func (m *mainModel) handleShellResult(msg shellResultMsg) (tea.Model, tea.Cmd) {
-	if m.varState == nil {
+	if m.varState == nil || msg.generation != m.shellGeneration {
 		return m, nil
 	}
 
