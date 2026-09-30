@@ -111,6 +111,7 @@ func parseFilesParallel(files []string) []parseResult {
 						localParser.index = NewCheatIndex()
 						localParser.parseLines(path, data)
 						localCheats = append(localCheats, localParser.index.Cheats...)
+						localDuplicates = append(localDuplicates, localParser.index.Duplicates...)
 						localModules = mergeModules(localModules, &localDuplicates, localParser.index.Modules)
 						localErrors = append(localErrors, localParser.index.Errors...)
 					}
