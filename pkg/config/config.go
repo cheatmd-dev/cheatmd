@@ -181,8 +181,36 @@ func Init() error {
 	}); err != nil {
 		return err
 	}
+	if configErr != nil {
+		return configErr
+	}
+	path, remaining, multiple := strings.Cut(cfg.Path, ",")
+	path, err := ExpandHomePath(path)
+	if err != nil {
+		return fmt.Errorf("cheat path: %w", err)
+	}
+	if multiple {
+		path += "," + remaining
+	}
+	cfg.Path = path
 
-	return configErr
+	return nil
+}
+
+// ExpandHomePath resolves a leading ~ or ~/ against the user's home directory.
+// Other paths are preserved, including relative paths and literal dollar signs.
+func ExpandHomePath(path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") && !strings.HasPrefix(path, "~"+string(filepath.Separator)) {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if path == "~" {
+		return home, nil
+	}
+	return home + path[1:], nil
 }
 
 // registerDefaults seeds viper with a default for every config key, sourced

@@ -131,7 +131,7 @@ func buildComposeMarkdown(name, desc, command string) string {
 
 func determineComposeTargetFile(file string) (string, error) {
 	if file != "" {
-		return file, nil
+		return config.ExpandHomePath(file)
 	}
 
 	cfgPath := config.Get().Path
