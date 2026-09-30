@@ -25,12 +25,16 @@ var rootCmd = &cobra.Command{
 Browse your cheatsheets interactively, select commands,
 fill in variables, and execute or copy the result.`,
 	Args: cobra.MaximumNArgs(1),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := config.Init(); err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+		return nil
+	},
 	RunE: runCheats,
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	rootCmd.AddCommand(widgetCmd)
 	rootCmd.AddCommand(chainCmd)
 	rootCmd.AddCommand(dumpCmd)
@@ -51,12 +55,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("history", "H", false, "Open the execution history picker")
 	rootCmd.PersistentFlags().BoolP("lint", "l", false, "Lint cheats and exit")
 	rootCmd.PersistentFlags().BoolP("strict", "s", false, "Treat lint warnings as errors")
-}
-
-func initConfig() {
-	if err := config.Init(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-	}
 }
 
 func runCheats(cmd *cobra.Command, args []string) error {
