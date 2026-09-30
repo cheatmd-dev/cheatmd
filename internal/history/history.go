@@ -86,6 +86,16 @@ func Load(path string, maxEntries int) ([]Entry, error) {
 	}
 	defer f.Close()
 
+	if maxEntries > 0 {
+		info, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode().IsRegular() {
+			return loadRecent(f, info.Size(), maxEntries)
+		}
+	}
+
 	entries := make([]Entry, 0, 256)
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -110,6 +120,66 @@ func Load(path string, maxEntries int) ([]Entry, error) {
 	}
 	if maxEntries > 0 && len(entries) > maxEntries {
 		entries = entries[:maxEntries]
+	}
+	return entries, nil
+}
+
+func loadRecent(r io.ReaderAt, size int64, limit int) ([]Entry, error) {
+	const maxLineSize = 1024 * 1024
+	entries := make([]Entry, 0, min(limit, 256))
+	buffer := make([]byte, 64*1024)
+	var recordSuffix []byte
+	consume := func(prefix []byte) error {
+		if len(prefix)+len(recordSuffix) >= maxLineSize {
+			return bufio.ErrTooLong
+		}
+		line := prefix
+		if len(recordSuffix) > 0 {
+			line = append(append(make([]byte, 0, len(prefix)+len(recordSuffix)), prefix...), recordSuffix...)
+			recordSuffix = nil
+		}
+		if len(line) == 0 {
+			return nil
+		}
+		var entry Entry
+		if err := json.Unmarshal(line, &entry); err == nil {
+			entries = append(entries, entry)
+		}
+		return nil
+	}
+	for position := size; position > 0; {
+		n := int(min(position, int64(len(buffer))))
+		position -= int64(n)
+		read, err := r.ReadAt(buffer[:n], position)
+		if err != nil {
+			return entries, err
+		}
+		if read != n {
+			return entries, io.ErrUnexpectedEOF
+		}
+		end := n
+		for i := n - 1; i >= 0; i-- {
+			if buffer[i] != '\n' {
+				continue
+			}
+			if err := consume(buffer[i+1 : end]); err != nil {
+				return entries, err
+			}
+			if len(entries) == limit {
+				return entries, nil
+			}
+			end = i
+		}
+		if end+len(recordSuffix) >= maxLineSize {
+			return entries, bufio.ErrTooLong
+		}
+		next := make([]byte, end+len(recordSuffix))
+		copy(next, buffer[:end])
+		copy(next[end:], recordSuffix)
+		recordSuffix = next
+	}
+	if err := consume(nil); err != nil {
+		return entries, err
 	}
 	return entries, nil
 }
