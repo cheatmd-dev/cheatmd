@@ -37,9 +37,9 @@ func TestExtractVars(t *testing.T) {
 			want:    nil,
 		},
 		{
-			name:    "escaped variables", // the parser currently extracts it anyway, which is fine for compose
+			name:    "escaped variables",
 			command: "echo \\$var",
-			want:    []string{"var"},
+			want:    nil,
 		},
 	}
 
