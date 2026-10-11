@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"path/filepath"
 	"strings"
+
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // ============================================================================
@@ -177,7 +179,11 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 		lineStart := findLineStart(data, lineEnd)
 		line := bytes.TrimRight(data[lineStart:lineEnd], " \t\r")
 		if bytes.Equal(line, []byte("---")) && lineStart != openEnd-3 {
-			tags := parseYAMLTags(data[lineEnd+1 : openEnd])
+			block := data[lineEnd+1 : openEnd]
+			if !isTagMetadata(block) {
+				return nil, nil, false
+			}
+			tags := parseYAMLTags(block)
 			return data[:lineStart], tags, true
 		}
 		if lineStart == 0 {
@@ -186,6 +192,19 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 		openStart = lineStart - 1
 	}
 	return nil, nil, false
+}
+
+func isTagMetadata(block []byte) bool {
+	var metadata map[string]any
+	if err := yaml.Unmarshal(block, &metadata); err != nil {
+		return false
+	}
+	for key := range metadata {
+		if strings.EqualFold(key, "tags") {
+			return true
+		}
+	}
+	return false
 }
 
 func findLineStart(data []byte, end int) int {
