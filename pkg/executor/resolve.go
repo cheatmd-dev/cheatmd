@@ -129,29 +129,30 @@ func visitDependencies(defs []parser.VarDef, addWithDeps func(string)) {
 
 // EvaluateCondition evaluates a condition expression against the scope.
 func EvaluateCondition(condition string, scope map[string]string) bool {
-	condition = strings.TrimSpace(condition)
-
-	condition = SubstituteVars(condition, scope, "dollar")
-
-	if strings.Contains(condition, "==") {
-		parts := strings.SplitN(condition, "==", 2)
-		if len(parts) == 2 {
-			left := strings.TrimSpace(parts[0])
-			right := strings.TrimSpace(parts[1])
-			return left == right
+	for _, predicate := range strings.Split(condition, "&&") {
+		predicate = strings.TrimSpace(predicate)
+		op := ""
+		at := -1
+		for i := 0; i+1 < len(predicate); i++ {
+			if predicate[i:i+2] == "==" || predicate[i:i+2] == "!=" {
+				at, op = i, predicate[i:i+2]
+				break
+			}
+		}
+		if at < 0 {
+			if SubstituteVars(predicate, scope, "dollar") == "" {
+				return false
+			}
+			continue
+		}
+		left := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[:at]), scope, "dollar"))
+		right := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[at+2:]), scope, "dollar"))
+		equal := left == right
+		if (op == "==" && !equal) || (op == "!=" && equal) {
+			return false
 		}
 	}
-
-	if strings.Contains(condition, "!=") {
-		parts := strings.SplitN(condition, "!=", 2)
-		if len(parts) == 2 {
-			left := strings.TrimSpace(parts[0])
-			right := strings.TrimSpace(parts[1])
-			return left != right
-		}
-	}
-
-	return condition != ""
+	return true
 }
 
 // ReplaceVar replaces variable references in cmd with replacement.
