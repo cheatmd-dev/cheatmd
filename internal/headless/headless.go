@@ -5,6 +5,7 @@ package headless
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -219,20 +220,19 @@ func (t *trackingWriter) Write(p []byte) (n int, err error) {
 // runCommandAndCapture shells out the given command and intercepts both standard streams.
 // It kills the process if it produces no output for IdleTimeout.
 func runCommandAndCapture(shell, command string) (string, string, error) {
-	cmd := exec.Command(shell, "-c", command)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, shell, "-c", command)
 	cmd.Env = os.Environ()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
-	timer := time.AfterFunc(IdleTimeout, func() {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-	})
+	timeout := IdleTimeout
+	timer := time.AfterFunc(timeout, cancel)
 	defer timer.Stop()
 
 	resetTimer := func() {
-		timer.Reset(IdleTimeout)
+		timer.Reset(timeout)
 	}
 
 	cmd.Stdout = &trackingWriter{w: &stdoutBuf, onWrite: resetTimer}
