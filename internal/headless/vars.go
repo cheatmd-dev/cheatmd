@@ -87,6 +87,7 @@ func (s *RunnerSession) attemptAutoResolvePass() bool {
 	for i := range s.Vars {
 		if s.tryResolveVariable(&s.Vars[i], scope) {
 			progress = true
+			scope[s.Vars[i].Def.Name] = s.Vars[i].Value
 		}
 	}
 
