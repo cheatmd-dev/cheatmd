@@ -118,13 +118,11 @@ func buildComposeMarkdown(name, desc, command string) string {
 	sb.WriteString(command)
 	sb.WriteString("\n```\n")
 
-	if len(vars) > 0 {
-		sb.WriteString("<!-- cheat\n")
-		for _, v := range vars {
-			sb.WriteString(fmt.Sprintf("var %s\n", v))
-		}
-		sb.WriteString("-->\n")
+	sb.WriteString("<!-- cheat\n")
+	for _, v := range vars {
+		sb.WriteString(fmt.Sprintf("var %s\n", v))
 	}
+	sb.WriteString("-->\n")
 
 	return sb.String()
 }
