@@ -23,16 +23,18 @@ Then press Ctrl+G to trigger the cheatmd selector.`,
 
 func runWidget(cmd *cobra.Command, args []string) error {
 	shell := args[0]
+	var script string
 
 	switch shell {
 	case "bash":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.BashWidget())
+		script = shellgen.BashWidget()
 	case "zsh":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.ZshWidget())
+		script = shellgen.ZshWidget()
 	case "fish":
-		fmt.Fprint(cmd.OutOrStdout(), shellgen.FishWidget())
+		script = shellgen.FishWidget()
 	default:
 		return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish)", shell)
 	}
-	return nil
+	_, err := fmt.Fprint(cmd.OutOrStdout(), script)
+	return err
 }
