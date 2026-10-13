@@ -83,7 +83,8 @@ type mainModel struct {
 	lastQuery string
 
 	// Variable resolution state (only used in phaseVarResolve)
-	varState *varResolveState
+	varState        *varResolveState
+	shellGeneration uint64
 
 	// Substitute search state (only used in phaseSubstituteSearch)
 	subState *substituteSearchState
