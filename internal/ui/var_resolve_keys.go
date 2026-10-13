@@ -289,9 +289,7 @@ func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
 	} else if m.varState.selectOpts.Multi && len(vs.multiSelected) > 0 {
 		var mapped []string
 		for _, selected := range vs.multiSelected {
-			if m.varState.selectOpts.MapCmd != "" {
-				selected = applyMapTransform(selected, m.varState.selectOpts)
-			}
+			selected = applyMapTransform(selected, m.varState.selectOpts)
 			mapped = append(mapped, selected)
 		}
 		delim := m.varState.selectOpts.Delimiter
@@ -302,9 +300,7 @@ func (m *mainModel) acceptVarValue(bypassSelection bool) tea.Cmd {
 	} else if m.varState.picker != nil {
 		if opt, ok := m.varState.picker.Selected(); ok {
 			selected := opt.Original
-			if m.varState.selectOpts.MapCmd != "" {
-				selected = applyMapTransform(selected, m.varState.selectOpts)
-			}
+			selected = applyMapTransform(selected, m.varState.selectOpts)
 			value = selected
 		} else {
 			value = m.textInput.Value()
