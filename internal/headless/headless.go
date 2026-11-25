@@ -39,6 +39,7 @@ type promptVar struct {
 	Options     []string `json:"options"`
 	Multi       bool     `json:"multi"`
 	varIdx      int      `json:"-"`
+	rows        []string // Original shell rows corresponding to Options.
 }
 
 // RunnerSession encapsulates the state and lifecycle of a command execution process.

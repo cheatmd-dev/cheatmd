@@ -267,7 +267,11 @@ func (s *RunnerSession) buildPromptVarIfReady(vs *resolver.VarState, idx int, sc
 	}
 
 	selectOpts := resolver.ParseSelectorOpts(vs.Def.Args)
-	options := s.evaluateShellOptions(vs, scope, selectOpts)
+	rows := s.evaluateShellOptions(vs, scope)
+	var options []string
+	for _, row := range rows {
+		options = append(options, resolver.GetDisplayColumn(row, selectOpts.Delimiter, selectOpts.Column))
+	}
 
 	return &promptVar{
 		Name:        vs.Def.Name,
@@ -276,10 +280,11 @@ func (s *RunnerSession) buildPromptVarIfReady(vs *resolver.VarState, idx int, sc
 		Options:     options,
 		Multi:       selectOpts.Multi,
 		varIdx:      idx,
+		rows:        rows,
 	}
 }
 
-func (s *RunnerSession) evaluateShellOptions(vs *resolver.VarState, scope map[string]string, selectOpts resolver.SelectOptions) []string {
+func (s *RunnerSession) evaluateShellOptions(vs *resolver.VarState, scope map[string]string) []string {
 	if strings.TrimSpace(vs.Def.Shell) == "" {
 		return nil
 	}
@@ -290,17 +295,7 @@ func (s *RunnerSession) evaluateShellOptions(vs *resolver.VarState, scope map[st
 		return nil
 	}
 
-	return s.parseShellOptions(output, selectOpts)
-}
-
-func (s *RunnerSession) parseShellOptions(output string, selectOpts resolver.SelectOptions) []string {
-	var options []string
-	lines := parser.SplitLines(output)
-	for _, opt := range lines {
-		display := resolver.GetDisplayColumn(opt, selectOpts.Delimiter, selectOpts.Column)
-		options = append(options, display)
-	}
-	return options
+	return parser.SplitLines(output)
 }
 
 // promptClient sends a JSON-RPC request over the wire, requesting the user
@@ -357,23 +352,39 @@ type promptResponse struct {
 
 func (s *RunnerSession) ingestPromptValues(promptVars []promptVar, promptRes *promptResponse) {
 	for _, pv := range promptVars {
-		val := s.extractPromptValue(pv, promptRes)
-		s.applyResolvedValue(&s.Vars[pv.varIdx], val)
+		vs := &s.Vars[pv.varIdx]
+		value, supplied := promptRes.Result.Values[pv.Name]
+		if !supplied {
+			value = pv.Placeholder
+		}
+
+		opts := resolver.ParseSelectorOpts(vs.Def.Args)
+		// The protocol returns strings, so column extraction requires an
+		// explicitly returned option that identifies an original row.
+		if opts.SelectColumn > 0 {
+			if row, selected := pv.selectedRow(value); supplied && selected {
+				value = row
+			} else {
+				opts.SelectColumn = 0
+			}
+		}
+		// Keep applying explicit map commands to custom and prefilled values.
+		vs.Value = resolver.ApplyMapTransform(value, opts)
+		vs.Resolved = true
 	}
 }
 
-func (s *RunnerSession) extractPromptValue(pv promptVar, promptRes *promptResponse) string {
-	val, ok := promptRes.Result.Values[pv.Name]
-	if !ok {
-		return pv.Placeholder
+func (pv promptVar) selectedRow(value string) (string, bool) {
+	var row string
+	var found bool
+	for i, option := range pv.Options {
+		if option != value {
+			continue
+		}
+		if found && row != pv.rows[i] {
+			return "", false
+		}
+		row, found = pv.rows[i], true
 	}
-	return val
-}
-
-func (s *RunnerSession) applyResolvedValue(vs *resolver.VarState, val string) {
-	selectOpts := resolver.ParseSelectorOpts(vs.Def.Args)
-	val = resolver.ApplyMapTransform(val, selectOpts)
-
-	vs.Value = val
-	vs.Resolved = true
+	return row, found
 }
