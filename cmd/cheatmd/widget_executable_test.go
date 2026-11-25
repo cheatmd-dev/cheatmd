@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,5 +41,37 @@ func TestWidgetRejectsUnsupportedShell(t *testing.T) {
 	}
 	if out.Len() != 0 {
 		t.Fatalf("unsupported shell produced output: %q", out.String())
+	}
+}
+
+func TestWidgetExecutablePathKeepsInstallationSymlink(t *testing.T) {
+	root := t.TempDir()
+	first := filepath.Join(root, "version-1")
+	second := filepath.Join(root, "version-2")
+	for _, path := range []string{first, second} {
+		if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	installName := "cheatmd-test"
+	installPath := filepath.Join(root, installName)
+	if err := os.Symlink(first, installPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Setenv("PATH", root)
+
+	for _, invoked := range []string{installName, installPath} {
+		if got := widgetExecutablePath(invoked, first); got != installPath {
+			t.Errorf("widgetExecutablePath(%q) = %q, want %q", invoked, got, installPath)
+		}
+	}
+	if err := os.Remove(installPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(second, installPath); err != nil {
+		t.Fatal(err)
+	}
+	if got := widgetExecutablePath(installName, first); got != first {
+		t.Errorf("different file returned %q, want running executable %q", got, first)
 	}
 }
