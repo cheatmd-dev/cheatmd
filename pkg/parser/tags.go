@@ -3,7 +3,10 @@ package parser
 import (
 	"bytes"
 	"path/filepath"
+	"regexp"
 	"strings"
+
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // ============================================================================
@@ -177,7 +180,11 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 		lineStart := findLineStart(data, lineEnd)
 		line := bytes.TrimRight(data[lineStart:lineEnd], " \t\r")
 		if bytes.Equal(line, []byte("---")) && lineStart != openEnd-3 {
-			tags := parseYAMLTags(data[lineEnd+1 : openEnd])
+			block := data[lineEnd+1 : openEnd]
+			if !isTagMetadata(block) {
+				return nil, nil, false
+			}
+			tags := parseYAMLTags(block)
 			return data[:lineStart], tags, true
 		}
 		if lineStart == 0 {
@@ -186,6 +193,38 @@ func extractYAMLFooter(data []byte, end int) ([]byte, []string, bool) {
 		openStart = lineStart - 1
 	}
 	return nil, nil, false
+}
+
+var compactTagKey = regexp.MustCompile(`(?mi)^([ \t]*tags:)([^ \t\r\n])`)
+
+func isTagMetadata(block []byte) bool {
+	if hasTopLevelTags(block) {
+		return true
+	}
+	// The tag reader also accepts legacy compact keys such as tags:[a].
+	// Normalize the spacing for validation, then read the original tags.
+	if !compactTagKey.Match(block) {
+		return false
+	}
+	return hasTopLevelTags(compactTagKey.ReplaceAll(block, []byte("${1} ${2}")))
+}
+
+func hasTopLevelTags(block []byte) bool {
+	var document yaml.Node
+	if err := yaml.Unmarshal(block, &document); err != nil || len(document.Content) == 0 {
+		return false
+	}
+	root := document.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i < len(root.Content); i += 2 {
+		key := root.Content[i]
+		if key.Kind == yaml.ScalarNode && strings.EqualFold(key.Value, "tags") {
+			return true
+		}
+	}
+	return false
 }
 
 func findLineStart(data []byte, end int) int {
