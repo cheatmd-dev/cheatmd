@@ -1,10 +1,35 @@
 package parser
 
-import (
-	"regexp"
-)
-
-var combinedRegex = regexp.MustCompile(`\$([a-zA-Z_][a-zA-Z0-9_]*)|<([a-zA-Z_][a-zA-Z0-9_]*)>`)
+// WalkVars visits complete variable references in source order using byte offsets.
+// A backslash immediately before a dollar shields it from CheatMD. Command
+// rendering removes that one backslash, leaving any earlier ones for the shell.
+func WalkVars(command string, allowDollar, allowAngle bool, visit func(start, end int, name string)) {
+	for i := 0; i < len(command); i++ {
+		dollar := command[i] == '$' && allowDollar && (i == 0 || command[i-1] != '\\')
+		angle := command[i] == '<' && allowAngle
+		if !dollar && !angle {
+			continue
+		}
+		start := i
+		j := i + 1
+		if j >= len(command) || !IsVarChar(command[j], true) {
+			continue
+		}
+		j++
+		for j < len(command) && IsVarChar(command[j], false) {
+			j++
+		}
+		name := command[i+1 : j]
+		if angle {
+			if j >= len(command) || command[j] != '>' {
+				continue
+			}
+			j++
+		}
+		visit(start, j, name)
+		i = j - 1
+	}
+}
 
 // ExtractVars finds all variables in a command string. It respects the provided
 // flags for dollar ($var) and angle bracket (<var>) syntaxes. It returns a
@@ -14,20 +39,12 @@ func ExtractVars(command string, allowDollar, allowAngle bool) []string {
 	varMap := make(map[string]bool)
 	var vars []string
 
-	matches := combinedRegex.FindAllStringSubmatch(command, -1)
-	for _, match := range matches {
-		var name string
-		if match[1] != "" && allowDollar {
-			name = match[1]
-		} else if match[2] != "" && allowAngle {
-			name = match[2]
-		}
-
-		if name != "" && !varMap[name] {
+	WalkVars(command, allowDollar, allowAngle, func(_, _ int, name string) {
+		if !varMap[name] {
 			varMap[name] = true
 			vars = append(vars, name)
 		}
-	}
+	})
 
 	return vars
 }

@@ -173,78 +173,28 @@ func evaluatePredicate(predicate string, scope map[string]string) bool {
 
 // ReplaceVar replaces variable references in cmd with replacement.
 func ReplaceVar(cmd, varName, replacement string, syntax string) string {
-	q := regexp.QuoteMeta(varName)
-	var parts []string
-	if syntax == "dollar" || syntax == "both" {
-		parts = append(parts, `\$`+q+`\b`)
-	}
-	if syntax == "angle" || syntax == "both" {
-		parts = append(parts, `<`+q+`>`)
-	}
-	if len(parts) == 0 {
-		return cmd
-	}
-	pattern := strings.Join(parts, "|")
-	re := regexp.MustCompile(pattern)
-	return re.ReplaceAllLiteralString(cmd, replacement)
+	return replaceTemplateVar(cmd, varName, replacement,
+		syntax == "" || syntax == "dollar" || syntax == "both", syntax == "angle" || syntax == "both")
 }
 
-// FindAllVars finds ALL variable references in a command, ignoring quoting.
+func replaceTemplateVar(command, varName, replacement string, allowDollar, allowAngle bool) string {
+	var out strings.Builder
+	last := 0
+	parser.WalkVars(command, allowDollar, allowAngle, func(start, end int, name string) {
+		if name == varName {
+			out.WriteString(command[last:start])
+			out.WriteString(replacement)
+			last = end
+		}
+	})
+	if last == 0 {
+		return command
+	}
+	out.WriteString(command[last:])
+	return out.String()
+}
+
+// FindAllVars finds variable references using the parser's syntax and escaping rules.
 func FindAllVars(cmd string, syntax string) []string {
-	allowDollar := syntax == "dollar" || syntax == "both"
-	allowAngle := syntax == "angle" || syntax == "both"
-
-	var vars []string
-	seen := make(map[string]bool)
-	add := func(name string) {
-		if seen[name] {
-			return
-		}
-		seen[name] = true
-		vars = append(vars, name)
-	}
-
-	for i := 0; i < len(cmd); i++ {
-		switch cmd[i] {
-		case '$':
-			i = scanDollarVar(cmd, i, allowDollar, add)
-		case '<':
-			i = scanAngleVar(cmd, i, allowAngle, add)
-		}
-	}
-
-	return vars
-}
-
-func scanDollarVar(cmd string, i int, allowDollar bool, add func(string)) int {
-	if !allowDollar || i+1 >= len(cmd) || (i > 0 && cmd[i-1] == '\\') {
-		return i
-	}
-	j := i + 1
-	for j < len(cmd) && parser.IsVarChar(cmd[j], j == i+1) {
-		j++
-	}
-	if j > i+1 {
-		add(cmd[i+1 : j])
-	}
-	return j - 1
-}
-
-func scanAngleVar(cmd string, i int, allowAngle bool, add func(string)) int {
-	if !allowAngle {
-		return i
-	}
-	j := i + 1
-	if j >= len(cmd) || !parser.IsVarChar(cmd[j], true) {
-		return i
-	}
-	j++
-	for j < len(cmd) && parser.IsVarChar(cmd[j], false) {
-		j++
-	}
-	if j >= len(cmd) || cmd[j] != '>' {
-		return i
-	}
-	add(cmd[i+1 : j])
-	return j
+	return parser.ExtractVars(cmd, syntax == "" || syntax == "dollar" || syntax == "both", syntax == "angle" || syntax == "both")
 }

@@ -97,25 +97,13 @@ func buildComposeMarkdown(name, desc, command string) string {
 	// Always extract both syntaxes to catch whatever the user pasted
 	vars := parser.ExtractVars(command, true, true)
 
-	// Rewrite the command to respect the user's configured var_syntax
-	switch config.Get().VarSyntax {
-	case "dollar", "":
-		for _, v := range vars {
-			command = strings.ReplaceAll(command, "<"+v+">", "$"+v)
-		}
-	case "angle":
-		for _, v := range vars {
-			command = strings.ReplaceAll(command, "$"+v, "<"+v+">")
-		}
-	}
-
 	var sb strings.Builder
 	sb.WriteString("\n# ")
 	sb.WriteString(name)
 	sb.WriteString("\n\n")
 
 	sb.WriteString(fmt.Sprintf("```sh title:\"%s\"\n", desc))
-	sb.WriteString(command)
+	writeComposeCommand(&sb, command, config.Get().VarSyntax)
 	sb.WriteString("\n```\n")
 
 	sb.WriteString("<!-- cheat\n")
@@ -125,6 +113,26 @@ func buildComposeMarkdown(name, desc, command string) string {
 	sb.WriteString("-->\n")
 
 	return sb.String()
+}
+
+func writeComposeCommand(out *strings.Builder, command, syntax string) {
+	toAngle := syntax == "angle"
+	toDollar := syntax == "dollar" || syntax == ""
+	if !toAngle && !toDollar {
+		out.WriteString(command)
+		return
+	}
+	last := 0
+	parser.WalkVars(command, toAngle, toDollar, func(start, end int, name string) {
+		out.WriteString(command[last:start])
+		if toAngle {
+			out.WriteString("<" + name + ">")
+		} else {
+			out.WriteString("$" + name)
+		}
+		last = end
+	})
+	out.WriteString(command[last:])
 }
 
 func determineComposeTargetFile(file string) (string, error) {

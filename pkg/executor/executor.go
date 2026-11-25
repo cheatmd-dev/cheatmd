@@ -184,10 +184,10 @@ func SubstituteVars(s string, scope map[string]string, syntax string) string {
 		case "angle":
 			s = strings.ReplaceAll(s, "<"+name+">", val)
 		case "both":
-			s = strings.ReplaceAll(s, "$"+name, val)
+			s = replaceTemplateVar(s, name, val, true, false)
 			s = strings.ReplaceAll(s, "<"+name+">", val)
 		default: // "dollar"
-			s = strings.ReplaceAll(s, "$"+name, val)
+			s = replaceTemplateVar(s, name, val, true, false)
 		}
 	}
 	return s

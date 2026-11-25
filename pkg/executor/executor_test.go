@@ -75,6 +75,12 @@ func TestSubstituteVars_Dollar(t *testing.T) {
 			expected: "echo <host>",
 		},
 		{
+			name:     "escaped and unknown references are preserved",
+			input:    `echo \$user \\$user $user $username`,
+			scope:    map[string]string{"user": "bob"},
+			expected: `echo \$user \\$user bob $username`,
+		},
+		{
 			name:     "braced shell vars ignored in dollar mode",
 			input:    "echo ${host} $host",
 			scope:    map[string]string{"host": "10.0.0.1"},
