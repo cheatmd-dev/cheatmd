@@ -14,6 +14,10 @@ import (
 // interactive cheatmd widget, replacing the current command line with the
 // selected command.
 func BashWidget() string {
+	return bashWidget("cheatmd")
+}
+
+func bashWidget(command string) string {
 	keyWidget := config.Get().KeyWidget
 	return fmt.Sprintf(`#!/usr/bin/env bash
 
@@ -22,9 +26,9 @@ _cheatmd_widget() {
 
    local output
    if [ -z "${input}" ]; then
-      output="$(cheatmd --print)" || return
+      output="$(%s --print)" || return
    else
-      output="$(cheatmd --print --match "$input")" || return
+      output="$(%s --print --match "$input")" || return
    fi
 
    if [ -n "$output" ]; then
@@ -38,13 +42,17 @@ if [ ${BASH_VERSION:0:1} -lt 4 ]; then
 else
    bind -x '"%s": _cheatmd_widget'
 fi
-`, keyWidget)
+`, command, command, keyWidget)
 }
 
 // ZshWidget returns a zsh script that binds the configured key to an
 // interactive cheatmd widget, replacing the current command line with the
 // selected command.
 func ZshWidget() string {
+	return zshWidget("cheatmd")
+}
+
+func zshWidget(command string) string {
 	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to zsh format (e.g., \C-g -> ^g)
 	zshKey := convertToZshKey(keyWidget)
@@ -55,9 +63,9 @@ _cheatmd_widget() {
 
    local output
    if [ -z "$input" ]; then
-      output="$(cheatmd --print)" || return
+      output="$(%s --print)" || return
    else
-      output="$(cheatmd --print --match "$input")" || return
+      output="$(%s --print --match "$input")" || return
    fi
 
    if [ -n "$output" ]; then
@@ -70,13 +78,17 @@ _cheatmd_widget() {
 
 zle -N _cheatmd_widget
 bindkey '%s' _cheatmd_widget
-`, zshKey)
+`, command, command, zshKey)
 }
 
 // FishWidget returns a fish script that binds the configured key to an
 // interactive cheatmd widget, replacing the current command line with the
 // selected command.
 func FishWidget() string {
+	return fishWidget("cheatmd")
+}
+
+func fishWidget(command string) string {
 	keyWidget := config.Get().KeyWidget
 	// Convert bash-style keybinding to fish format (e.g., \C-g -> \cg)
 	fishKey := convertToFishKey(keyWidget)
@@ -86,10 +98,10 @@ func FishWidget() string {
    set -l cmd_status 0
 
    if test -z "$input"
-      set output (cheatmd --print)
+      set output (%s --print)
       set cmd_status $status
    else
-      set output (cheatmd --print --match "$input")
+      set output (%s --print --match "$input")
       set cmd_status $status
    end
 
@@ -106,7 +118,24 @@ func FishWidget() string {
 end
 
 bind %s _cheatmd_widget
-`, fishKey)
+`, command, command, fishKey)
+}
+
+// Widget generates an integration bound to a particular executable. Quote its
+// path for the chosen shell so spaces and apostrophes remain part of the path.
+func Widget(shell, executable string) (string, error) {
+	quoted := "'" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'"
+	switch shell {
+	case "bash":
+		return bashWidget(quoted), nil
+	case "zsh":
+		return zshWidget(quoted), nil
+	case "fish":
+		quoted = "'" + strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(executable) + "'"
+		return fishWidget(quoted), nil
+	default:
+		return "", fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish)", shell)
+	}
 }
 
 // convertToZshKey converts a bash-style keybinding to zsh format
