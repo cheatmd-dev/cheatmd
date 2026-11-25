@@ -26,15 +26,6 @@ func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []P
 			continue
 		}
 
-		// Calculate currentCondition from the stack
-		var conds []string
-		for _, c := range conditionStack {
-			if c != "" {
-				conds = append(conds, c)
-			}
-		}
-		currentCondition := strings.Join(conds, " && ")
-
 		keyword, rest := splitFirstWord(line)
 		switch keyword {
 		case "fi":
@@ -78,8 +69,18 @@ func parseCheatDSL(cheat *Cheat, content string, path string, startLine int) []P
 				errs = append(errs, ParseError{File: path, Line: lineNo, Message: err})
 			}
 		case "var":
+			// Keep the individual if expressions for evaluation.
+			var conds []string
+			for _, c := range conditionStack {
+				if c != "" {
+					conds = append(conds, c)
+				}
+			}
+			currentCondition := strings.Join(conds, " && ")
 			if err := parseVarLine(cheat, rest, currentCondition); err != "" {
 				errs = append(errs, ParseError{File: path, Line: lineNo, Message: err})
+			} else if len(conds) > 1 {
+				cheat.Vars[len(cheat.Vars)-1].nested = &nestedCondition{joined: currentCondition, parts: conds}
 			}
 		default:
 			errs = append(errs, ParseError{File: path, Line: lineNo, Message: fmt.Sprintf("unknown DSL keyword %q (expected one of: var, if, fi, export, import, chain)", keyword)})

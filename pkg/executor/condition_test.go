@@ -13,6 +13,8 @@ func TestEvaluateConditionConjunction(t *testing.T) {
 		{"second false", "$env == prod && $region == eu", map[string]string{"env": "prod", "region": "us"}, false},
 		{"both false", "$env == prod && $region == eu", map[string]string{"env": "dev", "region": "us"}, false},
 		{"mixed operators", "$env != dev && $region == eu", map[string]string{"env": "prod", "region": "eu"}, true},
+		{"literal within conjunction", "$value == Rock && Roll && $enabled", map[string]string{"value": "Rock && Roll", "enabled": "yes"}, true},
+		{"false predicate after literal", "$value == Rock && Roll && $enabled", map[string]string{"value": "Rock && Roll", "enabled": ""}, false},
 		{"three predicates", "$env == prod && $region != us && $ready", map[string]string{"env": "prod", "region": "eu", "ready": "yes"}, true},
 		{"empty middle predicate", "yes && && yes", nil, false},
 		{"empty last predicate", "yes &&", nil, false},
@@ -30,6 +32,10 @@ func TestEvaluateConditionLiteralOperands(t *testing.T) {
 		name, condition, value, expected string
 		want                             bool
 	}{
+		{"literal conjunction text", "$value == Rock && Roll", "Rock && Roll", "", true},
+		{"literal does not match just its prefix", "$value == Rock && Roll", "Rock", "", false},
+		{"inequality against literal conjunction text", "$value != Rock && Roll", "Rock && Roll", "", false},
+		{"ampersands without spaces", "$value == Rock&&Roll", "Rock&&Roll", "", true},
 		{"equality containing operators", "$value == $expected", "a == b != c && d", "a == b != c && d", true},
 		{"unequal values containing operators", "$value == $expected", "a == b", "a != b", false},
 		{"inequality containing equality", "$value != other", "a == b", "", true},
