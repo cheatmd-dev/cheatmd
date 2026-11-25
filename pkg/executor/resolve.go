@@ -127,32 +127,48 @@ func visitDependencies(defs []parser.VarDef, addWithDeps func(string)) {
 	}
 }
 
+// A comparison can contain literal && in its operand. A following variable
+// predicate gives && its conjunction meaning on the same DSL line.
+var variableConjunction = regexp.MustCompile(`&&\s*\$[a-zA-Z_][a-zA-Z0-9_]*\s*(?:==|!=|&&|$)`)
+
 // EvaluateCondition evaluates a condition expression against the scope.
 func EvaluateCondition(condition string, scope map[string]string) bool {
-	for _, predicate := range strings.Split(condition, "&&") {
-		predicate = strings.TrimSpace(predicate)
-		op := ""
-		at := -1
-		for i := 0; i+1 < len(predicate); i++ {
-			if predicate[i:i+2] == "==" || predicate[i:i+2] == "!=" {
-				at, op = i, predicate[i:i+2]
-				break
+	for {
+		predicate, rest, joined := strings.Cut(condition, "&&")
+		if joined && (strings.Contains(predicate, "==") || strings.Contains(predicate, "!=")) {
+			if match := variableConjunction.FindStringIndex(condition[len(predicate):]); match != nil {
+				boundary := len(predicate) + match[0]
+				predicate, rest = condition[:boundary], condition[boundary+2:]
+			} else {
+				predicate, joined = condition, false
 			}
 		}
-		if at < 0 {
-			if SubstituteVars(predicate, scope, "dollar") == "" {
-				return false
-			}
-			continue
-		}
-		left := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[:at]), scope, "dollar"))
-		right := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[at+2:]), scope, "dollar"))
-		equal := left == right
-		if (op == "==" && !equal) || (op == "!=" && equal) {
+
+		if !evaluatePredicate(predicate, scope) {
 			return false
 		}
+		if !joined {
+			return true
+		}
+		condition = rest
 	}
-	return true
+}
+
+func evaluatePredicate(predicate string, scope map[string]string) bool {
+	predicate = strings.TrimSpace(predicate)
+	for i := 0; i+1 < len(predicate); i++ {
+		op := predicate[i : i+2]
+		if op != "==" && op != "!=" {
+			continue
+		}
+		left := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[:i]), scope, "dollar"))
+		right := strings.TrimSpace(SubstituteVars(strings.TrimSpace(predicate[i+2:]), scope, "dollar"))
+		if op == "==" {
+			return left == right
+		}
+		return left != right
+	}
+	return SubstituteVars(predicate, scope, "dollar") != ""
 }
 
 // ReplaceVar replaces variable references in cmd with replacement.

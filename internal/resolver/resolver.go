@@ -62,7 +62,9 @@ func SelectVariant(variants []parser.VarDef, scope map[string]string) *parser.Va
 			}
 			continue
 		}
-		if executor.EvaluateCondition(v.Condition, scope) {
+		if v.MatchesConditions(func(condition string) bool {
+			return executor.EvaluateCondition(condition, scope)
+		}) {
 			return v
 		}
 	}

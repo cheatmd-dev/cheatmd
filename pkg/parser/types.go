@@ -42,6 +42,27 @@ type VarDef struct {
 	Literal   string // Literal value with var substitution (for := syntax)
 	Args      string // Selector arguments after ---
 	Condition string // Conditional expression: "$var == value" or "$var != value"
+
+	nested *nestedCondition
+}
+
+type nestedCondition struct {
+	joined string
+	parts  []string
+}
+
+// MatchesConditions evaluates each enclosing if expression. Condition retains
+// the joined text for callers that display or construct variable definitions.
+func (v VarDef) MatchesConditions(match func(string) bool) bool {
+	if v.nested == nil || v.Condition != v.nested.joined {
+		return v.Condition == "" || match(v.Condition)
+	}
+	for _, part := range v.nested.parts {
+		if !match(part) {
+			return false
+		}
+	}
+	return true
 }
 
 func parseVarDefBase(value string) (string, string) {
