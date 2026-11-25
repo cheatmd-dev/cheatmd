@@ -1,18 +1,11 @@
 package parser
 
-// WalkVars visits complete variable references in source order. Offsets are byte
-// offsets into command. Dollar references escaped by an odd number of preceding
-// backslashes and shell ${...} forms are left to the shell.
+// WalkVars visits complete variable references in source order using byte offsets.
+// A backslash immediately before a dollar shields it from CheatMD. Command
+// rendering removes that one backslash, leaving any earlier ones for the shell.
 func WalkVars(command string, allowDollar, allowAngle bool, visit func(start, end int, name string)) {
-	backslashes := 0
 	for i := 0; i < len(command); i++ {
-		if command[i] == '\\' {
-			backslashes++
-			continue
-		}
-		escaped := backslashes%2 != 0
-		backslashes = 0
-		dollar := command[i] == '$' && allowDollar && !escaped
+		dollar := command[i] == '$' && allowDollar && (i == 0 || command[i-1] != '\\')
 		angle := command[i] == '<' && allowAngle
 		if !dollar && !angle {
 			continue

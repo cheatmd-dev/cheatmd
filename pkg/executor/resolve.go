@@ -173,20 +173,25 @@ func evaluatePredicate(predicate string, scope map[string]string) bool {
 
 // ReplaceVar replaces variable references in cmd with replacement.
 func ReplaceVar(cmd, varName, replacement string, syntax string) string {
-	q := regexp.QuoteMeta(varName)
-	var parts []string
-	if syntax == "dollar" || syntax == "both" {
-		parts = append(parts, `\$`+q+`\b`)
+	return replaceTemplateVar(cmd, varName, replacement,
+		syntax == "" || syntax == "dollar" || syntax == "both", syntax == "angle" || syntax == "both")
+}
+
+func replaceTemplateVar(command, varName, replacement string, allowDollar, allowAngle bool) string {
+	var out strings.Builder
+	last := 0
+	parser.WalkVars(command, allowDollar, allowAngle, func(start, end int, name string) {
+		if name == varName {
+			out.WriteString(command[last:start])
+			out.WriteString(replacement)
+			last = end
+		}
+	})
+	if last == 0 {
+		return command
 	}
-	if syntax == "angle" || syntax == "both" {
-		parts = append(parts, `<`+q+`>`)
-	}
-	if len(parts) == 0 {
-		return cmd
-	}
-	pattern := strings.Join(parts, "|")
-	re := regexp.MustCompile(pattern)
-	return re.ReplaceAllLiteralString(cmd, replacement)
+	out.WriteString(command[last:])
+	return out.String()
 }
 
 // FindAllVars finds variable references using the parser's syntax and escaping rules.
