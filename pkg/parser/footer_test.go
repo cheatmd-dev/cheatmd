@@ -17,6 +17,9 @@ func TestFooterPreservesOrdinaryMarkdown(t *testing.T) {
 		"metadata:\n  tags: [greeting]",
 		"- tags: [greeting]",
 		"tags: [unterminated",
+		"tags:[unterminated",
+		"description: |\n  tags:[greeting]",
+		"tags:[greeting]\n" + "```sh\necho hello\n```",
 	} {
 		t.Run(block, func(t *testing.T) {
 			input := "# Documentation\nIntro\n---\n" + block + "\n---\n"
@@ -36,6 +39,9 @@ func TestFooterTagsPreserveCommandBetweenRules(t *testing.T) {
 		{"ordinary closing rule", "---\n", nil},
 		{"inline tags", "---\ntags: [greeting, sample]\n---\n", []string{"greeting", "sample"}},
 		{"case insensitive tags", "---\nTaGs: Greeting, Sample\n---\n", []string{"Greeting", "Sample"}},
+		{"compact flow tags", "---\ntags:[greeting, sample]\n---\n", []string{"greeting", "sample"}},
+		{"compact comma-separated tags with other metadata", "---\nauthor: demo\nTaGs:Greeting, Sample\n---\n", []string{"Greeting", "Sample"}},
+		{"repeated tag entries", "---\ntags: greeting\ntags: sample\n---\n", []string{"greeting", "sample"}},
 		{"list tags", "---\ntags:\n  - greeting\n  - sample\n---\n", []string{"greeting", "sample"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
